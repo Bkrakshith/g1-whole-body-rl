@@ -1,0 +1,29 @@
+# Which robot model g1-whole-body-rl builds its training (MJX) and evaluation (CPU MuJoCo)
+# models from. scripts/build_assets.py reads this, picks the FIRST source whose
+# file exists, and records the choice in assets/PROVENANCE.md and in every
+# exported policy.json ("robot_model_source").
+#
+# Robot (docs/interfaces.md, user decision 2026-09-29): Unitree G1 29-DoF
+# rev 1.0 + BrainCo Revo2 hands. The canonical model is owned by g1-brainco-description/.
+sources:
+  # Canonical (g1-brainco-description, sibling repo). fixedhands = hand joints welded -> training model.
+  - name: robot_canonical
+    train: ../g1-brainco-description/g1_29dof_brainco/mjcf/g1_29dof_brainco_fixedhands.xml
+    # eval = same file with its MESH collisions kept (train/eval joint parity,
+    # skill pre-flight C); eval_hands = the full model with the 12 actuated
+    # BrainCo finger DoF (22 hinge joints incl. mimic), closest to g1-mujoco-sim.
+    eval: ../g1-brainco-description/g1_29dof_brainco/mjcf/g1_29dof_brainco_fixedhands.xml
+    eval_hands: ../g1-brainco-description/g1_29dof_brainco/mjcf/g1_29dof_brainco.xml
+  # FALLBACK (clearly marked): Unitree G1 29-DoF rev 1.0 with the stock rubber
+  # hands from unitree_rl_gym. Used ONLY until g1-brainco-description lands. Hand mass and
+  # wrist inertia differ from the BrainCo Revo2 build -> any policy trained on
+  # it must be retrained (or at least re-validated) on the canonical model.
+  - name: FALLBACK_unitree_rl_gym_rev_1_0
+    train: ~/ntu_dev/unitree_rl_gym/resources/robots/g1_description/g1_29dof_rev_1_0.xml
+    eval: ~/ntu_dev/unitree_rl_gym/resources/robots/g1_description/g1_29dof_rev_1_0.xml
+    eval_hands: ~/ntu_dev/unitree_rl_gym/resources/robots/g1_description/g1_29dof_rev_1_0.xml
+
+# Generated outputs (never hand-edit; re-run scripts/build_assets.py)
+out_train: assets/g1_mjx.xml
+out_eval: assets/g1_eval.xml
+out_eval_hands: assets/g1_eval_hands.xml

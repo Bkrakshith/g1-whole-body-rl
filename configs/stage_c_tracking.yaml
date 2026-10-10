@@ -1,0 +1,108 @@
+# Stage C overlay: faithful ULTRA motion-tracking teacher (+ student
+# distillation), used with `--overlay stage_c_tracking.yaml`. Deltas only;
+# everything else (gains, DR ranges, noise) comes from the base configs,
+# which already hold the ULTRA values.
+#
+# DATA (not downloaded; ask before fetching multi-GB archives). From ULTRA's
+# README "Data" table:
+#   ULTRA retargeted + augmented G1 data ([T, 630] .pt, teacher/student training)
+#     https://drive.google.com/file/d/1g6OzxXGJczZ4klVqKCpTzy-orKkllCr4/view?usp=sharing
+#     -> extract .pt files to data/ultra/OMOMO_retarget_aug/
+#   InterMimic prepared OMOMO references ([T, 591] SMPL-X, only for re-running
+#   ULTRA's retargeting stage, NOT needed here)
+#     https://drive.google.com/file/d/1l2E5qR97Ap8jrLrJPHmtNT8DDW1qKhY_/view?usp=sharing
+# Then: ./run.sh scripts/prepare_ultra_motions.py  (-> data/motions/*.npz)
+# Until then scripts/make_synthetic_motion.py writes a STUB motion set
+# (standing + teleop arm motions) so the whole Stage C path can be dry-run.
+
+train:
+  tracking:
+    motion_dir: data/motions            # prepared .npz (ours, 50 Hz)
+    max_motions: 512                    # GPU memory on the shared 3070 (stacked, padded)
+    # ULTRA cfg g1_teacher.yaml env.scaling 0.8: reference ROOT translation is
+    # scaled by 0.8 (ultra_g1.py _set_env_state / reward `ref * scale`).
+    # VERIFY on the downloaded archive: if it holds G1 rollouts in robot
+    # scale, set 1.0 (see README "Stage C").
+    ref_root_scale: 0.8
+    # ULTRA prepends 30 standing frames at 60 fps (0.5 s) = 25 frames at 50 Hz
+    standing_prefix_frames: 25
+    # ULTRA cfg env.stateInit Hybrid, hybridInitProb 0.1: start at a random
+    # frame w.p. 0.1, else at the first frame; the robot always starts in the
+    # default pose (ultra_g1.py _set_env_state sets dof = init_dof).
+    hybrid_init_prob: 0.1
+    future_frames: [1, 16]              # ULTRA _compute_observations_iter(.., 1) and (.., 16)
+    # ULTRA keyBodies (14). mid360_link is not a body of the g1-brainco-description model and
+    # left/right_rubber_hand is the stock hand: mapped as below (13 bodies).
+    key_bodies: [left_hip_yaw_link, left_knee_link, left_ankle_roll_link,
+                 right_hip_yaw_link, right_knee_link, right_ankle_roll_link,
+                 torso_link,
+                 left_shoulder_yaw_link, left_elbow_link, left_wrist_yaw_link,
+                 right_shoulder_yaw_link, right_elbow_link, right_wrist_yaw_link]
+    feet_key_idx: [2, 5]
+    # ULTRA humanoid_g1.py rot_id link pairs, re-indexed for the 13-body list
+    # (the torso->mid360 pair is dropped; shoulders hang off torso_link)
+    link_pairs: [[0, 1], [1, 2], [3, 4], [4, 5], [6, 7], [7, 8], [6, 10], [10, 11]]
+    # ULTRA cfg env.rewardWeights: p 10, r 5, pv 0.1, eg1 0 (exp(-w * err))
+    w_p: 10.0
+    w_r: 5.0
+    w_pv: 0.1
+    w_eg1: 0.0
+    w_standing_dof: 20.0                # ULTRA stage I reward exp(-20 mean (q - init_dof)^2)
+    # ULTRA smooth multiplier: r *= exp(S / 10) for t < 30, exp(S / 15) after
+    smooth_div: [10.0, 15.0]
+    smooth_switch_step: 30
+    # ULTRA cfg smooth_rewards.scales (RAW, used inside the exponential)
+    smooth_scales:
+      base_lin_vel: -0.1
+      ang_vel: -0.01
+      dof_vel: -0.0004
+      action_rate: -0.1
+      torques: -0.001
+      dof_pos_limits: -5.0
+      dof_torque_limits: -1.0
+      energy: -0.0001
+      delta_dof_vel_all: -0.00002
+      delta_ang_vel_all: -0.0005
+      torques_vel_all: -2.0e-10
+      feet_orientation: -0.35
+      foot_slip: -0.1
+      feet_distance: -0.1
+      knee_distance: -0.1
+      stand_on_feet: -1.0
+      termination: -50.0
+      # not ported (need per-body contact FORCES / object data): contact_change,
+      # feet_stumble, swing_clearance, and the object/interaction terms
+      # (op, or, opv, ig, cg1, cg2) -- no objects in this MJX scene.
+    # ULTRA humanoid_g1.py compute_humanoid_reset
+    termination_height: 0.15            # ULTRA cfg env.terminationHeight
+    termination_height_init: 0.5        # first 10 steps (_termination_heights_init)
+    init_steps: 10
+    feet_deviation_reset_m: 0.5         # human_reset: mean feet error > 0.5 m ...
+    feet_deviation_grace_steps: 30      # ... only after 30 steps
+
+  ppo:
+    # ULTRA rlg g1_teacher.yaml mapped to brax: horizon_length 32 -> unroll 32;
+    # minibatch 16384 samples = batch_size 512 x unroll 32; mini_epochs 6;
+    # lr 2e-5 constant; gamma 0.99 (58.8 Hz) -> 0.988 at 50 Hz (same horizon);
+    # tau 0.95; e_clip 0.2; entropy 0 (ULTRA fixes sigma; brax learns it).
+    # Not portable: critic_coef 5 and bounds_loss 10 (brax PPO has neither).
+    unroll_length: 32
+    batch_size: 512
+    num_minibatches: 4
+    num_updates_per_batch: 6
+    learning_rate: 2.0e-5
+    entropy_cost: 0.0
+    discounting: 0.988
+    clipping_epsilon: 0.2
+    episode_length: 1000
+
+  curricula:
+    tracking:
+      # ULTRA trains g1_teacher_no_dr.yaml (no DR/noise, stateInit Start) and
+      # g1_teacher.yaml (full DR); we stage them (one factor: DR incl. pushes).
+      - {name: c1_no_dr, num_timesteps: 500_000_000, cmd_scale: 0.0, dr_scale: 0.0, push_scale: 0.0,
+         arm_scale: 0.0, mode_probs: [1.0, 0.0, 0.0], switch_enabled: false,
+         gate_tracking: 0.0, gate_air_time: 0.0, gate_survival: 0.8, gate_upper: 0.0}
+      - {name: c2_full_dr, num_timesteps: 1_000_000_000, cmd_scale: 0.0, dr_scale: 1.0, push_scale: 1.0,
+         arm_scale: 0.0, mode_probs: [1.0, 0.0, 0.0], switch_enabled: false,
+         gate_tracking: 0.0, gate_air_time: 0.0, gate_survival: 0.8, gate_upper: 0.0}

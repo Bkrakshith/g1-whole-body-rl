@@ -1,0 +1,27 @@
+# G1 whole-body controller (g1-whole-body-rl): MuJoCo MJX + JAX + brax PPO.
+# Pinned to the stack validated on the AgiBot X1 / H1-2 reference projects
+# (/home/rakshith/ntu_dev/AGIBOT/Mujoco_agibot/requirements.txt).
+# mujoco pinned: keep training and eval physics identical within a campaign.
+mujoco==3.10.0
+mujoco-mjx==3.10.0
+# jax pinned <0.10: brax 0.14.x still uses jax.device_put_replicated (removed in 0.10).
+jax[cuda12]==0.9.2
+jaxlib==0.9.2
+flax==0.12.6
+optax==0.2.8
+orbax-checkpoint==0.12.1
+brax==0.14.2
+ml_collections>=1.0
+# numpy <2.5: numpy 2.5 breaks jax 0.9.x under vmap.
+numpy==2.4.6
+scipy>=1.13
+PyYAML>=6.0
+etils[epath]>=1.9
+mediapy>=1.2
+imageio-ffmpeg>=0.5
+matplotlib>=3.8
+# Export pipeline (torch CPU is installed separately, see environment.yml)
+onnx>=1.16
+onnxruntime>=1.18
+# Dev
+pytest>=8.0

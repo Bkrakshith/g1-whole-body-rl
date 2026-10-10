@@ -1,0 +1,64 @@
+# Domain randomisation, per EPISODE (sampled at every reset and carried in
+# state.info; the env rebuilds the mjx.Model view per env each step).
+# Source: ULTRA cfg ultra/data/cfg/g1_teacher.yaml `domain_rand:` / `noise:`
+# ("ULTRA dr.<key>"), implementation read in ultra/env/tasks/humanoid.py and
+# humanoid_g1.py for units/meaning (skill pre-flight D). Every sampled latent
+# is also a privileged observation of the teacher (skill L14), except the
+# instantaneous push (L20).
+# The curriculum scales every range toward nominal with stage.dr_scale
+# (config.stage_domain_rand); pushes with stage.push_scale.
+
+ground:
+  # ULTRA dr.friction_range [0.5, 2.0]; ULTRA applies ONE coefficient to all
+  # robot shapes (64 buckets). MuJoCo combines two geoms' friction with max(),
+  # so the sampled value is written to the floor AND every sole sphere.
+  friction_range: [0.5, 2.0]
+
+body:
+  # ULTRA dr.added_mass_range [-3, 3] kg, added to TORSO_LINK (humanoid_g1.py
+  # _process_rigid_body_props: props[self.torso_idx].mass += rand).
+  torso_mass_delta_range: [-3.0, 3.0]
+  # ULTRA dr.added_com_range [-0.05, 0.05] m per axis, torso_link CoM.
+  torso_com_shift_range: [-0.05, 0.05]
+
+actuation:
+  # ULTRA dr.motor_strength_range [0.8, 1.2]: humanoid.py samples TWO
+  # independent (num_envs, num_dof) tensors and multiplies kp by the first
+  # and kd by the second, PER JOINT (not the torque limit).
+  motor_strength_range: [0.8, 1.2]
+  # ULTRA dr.action_delay: humanoid.py pre_physics_step uses
+  # delay = np.random.randint(2) control steps (0 or 1) after 32k steps
+  # (action_buf_len 8 is only the buffer size). At 50 Hz: 0 - 20 ms.
+  # DEVIATION: ULTRA draws one delay for ALL envs each step; we draw per env
+  # per episode (a persistent latent the student can infer, skill L20).
+  action_delay_steps: [0, 1]
+
+gravity:
+  # ULTRA dr.gravity_range [-0.1, 0.1] m/s^2 added per axis to (0, 0, -9.81),
+  # resampled every dr.gravity_rand_interval_s = 4 s.
+  offset_range: [-0.1, 0.1]
+  interval_s: 4.0
+
+push:
+  # ULTRA dr.push_robots / push_interval_s 4 / max_push_vel_xy 1.0:
+  # humanoid.py _push_robots SETS the base linear velocity x/y to
+  # U(-v, v) (a velocity kick, not a force), every 4 s.
+  # DEVIATION: ULTRA pushes all envs on the same global tick; we give each env
+  # a random first-push time in [first_push_s] so pushes are not synchronised.
+  interval_s: 4.0
+  first_push_s: [1.0, 4.0]
+  max_vel_xy: 1.0          # m/s; stage.push_scale multiplies it
+
+obs_noise:
+  # ULTRA noise.noise_scales with noise_level 1.0. ULTRA adds UNIFORM noise
+  # (2*rand-1) * scale * level (ultra_g1_retarget.py _compute_observations),
+  # i.e. these are AMPLITUDES. We add uniform noise with the same amplitudes
+  # (no Gaussian conversion needed; skill M13). Units: raw sensor units.
+  # Applied to the STUDENT only (teacher_obs_noise 0 in train.yaml, L15).
+  distribution: uniform
+  dof_pos: 0.01            # rad
+  dof_vel: 0.1             # rad/s
+  ang_vel: 0.05            # rad/s (gyro)
+  # ULTRA noise `imu` 0.05 is on (roll, pitch) in rad; our obs is projected
+  # gravity (unit vector), whose x/y are ~sin(pitch)/sin(roll): same amplitude.
+  gravity: 0.05

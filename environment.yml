@@ -1,0 +1,11 @@
+# conda env create -f environment.yml   (then: conda activate g1-mjx)
+# torch CPU (export only, never used in training):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+name: g1-mjx
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      - -r requirements.txt

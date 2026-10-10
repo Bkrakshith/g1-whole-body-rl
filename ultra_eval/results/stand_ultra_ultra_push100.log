@@ -1,0 +1,515 @@
+bash: /home/rakshith/miniconda3/envs/unitree-rl/lib/libtinfo.so.6: no version information available (required by bash)
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+only got 141/256 samples!
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+only got 141/256 samples!
+/home/rakshith/miniconda3/envs/ultra-sim2sim/lib/python3.10/site-packages/torch/jit/_script.py:1491: FutureWarning: `torch.jit.script` is deprecated. Please switch to `torch.compile` or `torch.export`.
+  warnings.warn(
+only got 141/256 samples!
+only got 141/256 samples!
+only got 141/256 samples!
+only got 141/256 samples!
+[1/50] sub10_largebox_069_077_085_087_100_100_100.pt        ok                           mpbpe 0.039 m  sat 0.002  (14.7 s)
+[2/50] sub16_plasticbox_032_103_085_080_100_100_100.pt      ok                           mpbpe 0.040 m  sat 0.001  (15.4 s)
+[3/50] sub7_largebox_047_081_123_075_080_080_080.pt         ok                           mpbpe 0.038 m  sat 0.000  (16.6 s)
+[4/50] sub7_largebox_019_073_102_087_100_100_100.pt         ok                           mpbpe 0.028 m  sat 0.000  (16.7 s)
+[5/50] sub16_plasticbox_008_096_099_078_100_100_100.pt      ok                           mpbpe 0.039 m  sat 0.000  (16.3 s)
+[6/50] sub15_plasticbox_021_085_084_077_080_080_080.pt      ok                           mpbpe 0.042 m  sat 0.001  (17.1 s)
+[7/50] sub16_plasticbox_027_084_078_079_100_100_100.pt      ok                           mpbpe 0.029 m  sat 0.000  (16.6 s)
+[8/50] sub10_smallbox_019_103_078_081_100_100_100.pt        ok                           mpbpe 0.041 m  sat 0.001  (18.5 s)
+[9/50] sub7_largebox_019_097_091_079_100_100_100.pt         ok                           mpbpe 0.045 m  sat 0.001  (24.4 s)
+only got 141/256 samples!
+[10/50] sub10_largebox_094_102_074_086_080_080_080.pt        ok                           mpbpe 0.039 m  sat 0.002  (29.1 s)
+only got 141/256 samples!
+[11/50] sub15_suitcase_044_076_072_078_080_080_080.pt        ok                           mpbpe 0.041 m  sat 0.001  (29.1 s)
+[12/50] sub1_plasticbox_046_083_120_076_080_080_080.pt       ok                           mpbpe 0.041 m  sat 0.001  (30.4 s)
+[13/50] sub16_largebox_009_086_082_076_100_100_100.pt        ok                           mpbpe 0.039 m  sat 0.000  (14.5 s)
+[14/50] sub10_smallbox_051_099_074_074_100_100_100.pt        ok                           mpbpe 0.038 m  sat 0.000  (31.8 s)
+only got 141/256 samples!
+[15/50] sub10_largebox_040_101_088_080_100_100_100.pt        ok                           mpbpe 0.053 m  sat 0.001  (31.4 s)
+[16/50] sub7_largebox_028_085_085_073_100_100_100.pt         ok                           mpbpe 0.042 m  sat 0.000  (31.7 s)
+[17/50] sub8_largebox_046_120_126_084_100_100_100.pt         ok                           mpbpe 0.038 m  sat 0.001  (32.1 s)
+[18/50] sub16_plasticbox_023_077_088_083_080_080_080.pt      ok                           mpbpe 0.035 m  sat 0.000  (32.2 s)
+[19/50] sub8_largebox_024_123_122_078_100_100_100.pt         ok                           mpbpe 0.045 m  sat 0.000  (33.1 s)
+[20/50] sub7_largebox_020_094_086_085_100_100_100.pt         ok                           mpbpe 0.045 m  sat 0.001  (15.5 s)
+only got 141/256 samples!
+[21/50] sub7_largebox_019_086_120_080_100_100_100.pt         ok                           mpbpe 0.037 m  sat 0.001  (15.8 s)
+[22/50] sub1_suitcase_065_079_088_083_100_100_100.pt         ok                           mpbpe 0.043 m  sat 0.001  (32.5 s)
+[23/50] sub16_largebox_046_099_100_085_080_080_080.pt        ok                           mpbpe 0.042 m  sat 0.001  (16.9 s)
+[24/50] sub10_largebox_001_092_100_076_100_100_100.pt        ok                           mpbpe 0.034 m  sat 0.000  (15.7 s)
+only got 141/256 samples!
+[25/50] sub14_smallbox_042_085_083_076_100_100_100.pt        ok                           mpbpe 0.037 m  sat 0.000  (33.3 s)
+[26/50] sub3_largebox_017_120_084_074_100_100_100.pt         ok                           mpbpe 0.037 m  sat 0.000  (16.3 s)
+[27/50] sub1_suitcase_018_081_126_076_080_080_080.pt         ok                           mpbpe 0.035 m  sat 0.001  (18.9 s)
+[28/50] sub8_largebox_006_089_089_074_100_100_100.pt         ok                           mpbpe 0.036 m  sat 0.000  (22.4 s)
+[29/50] sub16_plasticbox_006_101_103_078_100_100_100.pt      ok                           mpbpe 0.040 m  sat 0.001  (23.8 s)
+[30/50] sub1_suitcase_056_083_103_076_100_100_100.pt         ok                           mpbpe 0.034 m  sat 0.000  (14.9 s)
+[31/50] sub10_largebox_038_073_083_075_080_080_080.pt        ok                           mpbpe 0.053 m  sat 0.002  (16.5 s)
+[32/50] sub8_largebox_044_092_092_072_100_100_100.pt         ok                           mpbpe 0.047 m  sat 0.001  (14.5 s)
+[33/50] sub14_suitcase_010_100_097_073_100_100_100.pt        ok                           mpbpe 0.048 m  sat 0.001  (20.8 s)
+[34/50] sub15_suitcase_051_072_093_077_080_080_080.pt        ok                           mpbpe 0.033 m  sat 0.000  (14.8 s)
+[35/50] sub10_smallbox_001_087_084_087_080_080_080.pt        ok                           mpbpe 0.038 m  sat 0.005  (19.2 s)
+[36/50] sub10_largebox_041_099_074_077_080_080_080.pt        ok                           mpbpe 0.036 m  sat 0.000  (18.9 s)
+[37/50] sub8_smallbox_046_086_127_083_100_100_100.pt         ok                           mpbpe 0.039 m  sat 0.001  (17.3 s)
+[38/50] sub10_largebox_009_079_072_079_100_100_100.pt        ok                           mpbpe 0.046 m  sat 0.002  (20.4 s)
+[39/50] sub3_largebox_005_098_101_080_080_080_080.pt         ok                           mpbpe 0.044 m  sat 0.004  (16.7 s)
+[40/50] sub15_suitcase_011_086_098_072_080_080_080.pt        ok                           mpbpe 0.055 m  sat 0.001  (22.7 s)
+[41/50] sub1_plasticbox_080_120_126_072_080_080_080.pt       ok                           mpbpe 0.046 m  sat 0.001  (24.3 s)
+[42/50] sub1_plasticbox_015_084_083_074_080_080_080.pt       ok                           mpbpe 0.036 m  sat 0.001  (22.9 s)
+[43/50] sub15_plasticbox_023_073_078_075_100_100_100.pt      ok                           mpbpe 0.041 m  sat 0.000  (27.0 s)
+[44/50] sub8_suitcase_006_083_086_073_080_080_080.pt         ok                           mpbpe 0.035 m  sat 0.001  (24.9 s)
+[45/50] sub10_largebox_039_081_103_083_100_100_100.pt        ok                           mpbpe 0.041 m  sat 0.001  (24.3 s)
+[46/50] sub4_suitcase_026_079_090_072_100_100_100.pt         ok                           mpbpe 0.044 m  sat 0.001  (27.0 s)
+[47/50] sub7_largebox_046_125_120_081_080_080_080.pt         ok                           mpbpe 0.035 m  sat 0.000  (27.7 s)
+[48/50] sub8_plasticbox_003_087_086_078_100_100_100.pt       ok                           mpbpe 0.037 m  sat 0.001  (24.9 s)
+[49/50] sub14_smallbox_047_103_098_073_100_100_100.pt        ok                           mpbpe 0.044 m  sat 0.001  (10.6 s)
+[50/50] sub8_suitcase_025_091_089_079_100_100_100.pt         ok                           mpbpe 0.045 m  sat 0.001  (11.2 s)
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+=> loading checkpoint '/home/rakshith/ntu_dev/Hospital_G1/rl/third_party/ULTRA/ultra/weights/teacher_ultra_inference.pth'
+build mlp: 4052
+build mlp: 4052
+sigma
+actor_mlp.0.weight
+actor_mlp.0.bias
+actor_mlp.2.weight
+actor_mlp.2.bias
+actor_mlp.4.weight
+actor_mlp.4.bias
+critic_mlp.0.weight
+critic_mlp.0.bias
+critic_mlp.2.weight
+critic_mlp.2.bias
+critic_mlp.4.weight
+critic_mlp.4.bias
+value.weight
+value.bias
+mu.weight
+mu.bias
+{
+ "ultra_ultra_stand_push3x100N": {
+  "clips": 50,
+  "falls": 0,
+  "survival": 1.0,
+  "torque_saturation_mean_survivors": 0.0008558452810622655,
+  "mpbpe_all_mean_survivors": 0.04027869784280333,
+  "root_xy_all_mean_survivors": 0.022473931840920534,
+  "root_z_all_mean_survivors": 0.02768184468795306,
+  "dof_all_mean_survivors": 0.051801359301819144,
+  "obj_all_mean_survivors": 0.026803415394973246
+ }
+}

@@ -1,0 +1,156 @@
+{
+  "source_name": "robot_canonical",
+  "fallback": false,
+  "train": {
+    "path": "assets/g1_mjx.xml",
+    "src": "g1-brainco-description/g1_29dof_brainco/mjcf/g1_29dof_brainco_fixedhands.xml",
+    "nq": 36,
+    "nv": 35,
+    "nu": 29,
+    "ngeom": 11,
+    "extra_joints": [],
+    "sole": "source MJCF sole spheres",
+    "info": {
+      "pelvis_height_home_m": 0.7842021819132596,
+      "total_mass_kg": 33.82675472,
+      "feet_lateral_home_m": 0.23701291,
+      "feet_xy_home_m": [
+        [
+          0.008998403605959875,
+          0.118506455
+        ],
+        [
+          0.008998403605959875,
+          -0.118506455
+        ]
+      ],
+      "com_home_m": [
+        0.026778520395779243,
+        8.370453360505173e-05,
+        0.6922994512971837
+      ],
+      "hand_pos_home_m": {
+        "left": [
+          0.1724504423681029,
+          0.14867215861505423,
+          0.7924463904062796
+        ],
+        "right": [
+          0.1724504423681029,
+          -0.14866215861505422,
+          0.7924463904062796
+        ]
+      },
+      "torso_height_home_m": 0.8282021819132597
+    }
+  },
+  "eval": {
+    "path": "assets/g1_eval.xml",
+    "src": "g1-brainco-description/g1_29dof_brainco/mjcf/g1_29dof_brainco_fixedhands.xml",
+    "nq": 36,
+    "nv": 35,
+    "nu": 29,
+    "ngeom": 147,
+    "extra_joints": [],
+    "sole": "source MJCF sole spheres",
+    "info": {
+      "pelvis_height_home_m": 0.7842021819132596,
+      "total_mass_kg": 33.82675472,
+      "feet_lateral_home_m": 0.23701291,
+      "feet_xy_home_m": [
+        [
+          0.008998403605959875,
+          0.118506455
+        ],
+        [
+          0.008998403605959875,
+          -0.118506455
+        ]
+      ],
+      "com_home_m": [
+        0.026778520395779243,
+        8.370453360505173e-05,
+        0.6922994512971837
+      ],
+      "hand_pos_home_m": {
+        "left": [
+          0.1724504423681029,
+          0.14867215861505423,
+          0.7924463904062796
+        ],
+        "right": [
+          0.1724504423681029,
+          -0.14866215861505422,
+          0.7924463904062796
+        ]
+      },
+      "torso_height_home_m": 0.8282021819132597
+    }
+  },
+  "eval_hands": {
+    "path": "assets/g1_eval_hands.xml",
+    "src": "g1-brainco-description/g1_29dof_brainco/mjcf/g1_29dof_brainco.xml",
+    "nq": 58,
+    "nv": 57,
+    "nu": 51,
+    "ngeom": 145,
+    "extra_joints": [
+      "left_thumb_metacarpal_joint",
+      "left_thumb_proximal_joint",
+      "left_thumb_distal_joint",
+      "left_index_proximal_joint",
+      "left_index_distal_joint",
+      "left_middle_proximal_joint",
+      "left_middle_distal_joint",
+      "left_ring_proximal_joint",
+      "left_ring_distal_joint",
+      "left_pinky_proximal_joint",
+      "left_pinky_distal_joint",
+      "right_thumb_metacarpal_joint",
+      "right_thumb_proximal_joint",
+      "right_thumb_distal_joint",
+      "right_index_proximal_joint",
+      "right_index_distal_joint",
+      "right_middle_proximal_joint",
+      "right_middle_distal_joint",
+      "right_ring_proximal_joint",
+      "right_ring_distal_joint",
+      "right_pinky_proximal_joint",
+      "right_pinky_distal_joint"
+    ],
+    "sole": "source MJCF sole spheres",
+    "info": {
+      "pelvis_height_home_m": 0.7842021819132596,
+      "total_mass_kg": 33.82675472,
+      "feet_lateral_home_m": 0.23701291,
+      "feet_xy_home_m": [
+        [
+          0.008998403605959875,
+          0.118506455
+        ],
+        [
+          0.008998403605959875,
+          -0.118506455
+        ]
+      ],
+      "com_home_m": [
+        0.026778520400445593,
+        8.370453368384147e-05,
+        0.6922994512944936
+      ],
+      "hand_pos_home_m": {
+        "left": [
+          0.1724504423681029,
+          0.14867215861505423,
+          0.7924463904062796
+        ],
+        "right": [
+          0.1724504423681029,
+          -0.14866215861505422,
+          0.7924463904062796
+        ]
+      },
+      "torso_height_home_m": 0.8282021819132597
+    }
+  }
+}

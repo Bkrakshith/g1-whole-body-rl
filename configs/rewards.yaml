@@ -1,0 +1,82 @@
+# Stage A/B reward (teleop controller: stand, velocity locomotion, upper-body
+# joint tracking). Per-step, additive; rewards.py has no magic numbers and the
+# metric keys are DERIVED from `weights` (skill M4).
+#
+# Sources (cited per term):
+#   URG  = unitree_rl_gym legged_gym/envs/g1/g1_config.py + g1_env.py (the
+#          G1 locomotion recipe Unitree validated sim-to-real; also the
+#          contract's placeholder policy)
+#   ULTRA smooth = ULTRA cfg g1_teacher.yaml `smooth_rewards.scales`. ULTRA
+#          applies them MULTIPLICATIVELY: r = r_track * exp(S / 15), S = sum of
+#          scaled terms (humanoid_g1.py _compute_reward). For an additive reward
+#          with r_track ~ 1 the first-order expansion is r_track + S / 15, so
+#          each ULTRA scale enters here as scale / 15 (same meaning, same
+#          term definitions, smooth_rewards.py).
+#   SKILL = training-humanoid-rl-policies validated values (H1-2 / X1).
+
+kernels:
+  tracking_sigma: 0.25          # URG rewards.tracking_sigma 0.25 (exp(-err^2/sigma))
+  tracking_yaw_sigma: 0.25      # URG
+  # upper-body joint tracking exp(-mean_j (q_j - q*_j)^2 / sigma). Skill rule
+  # sigma >= e_max^2 / 2.3 with e_max 0.5 rad RMS at the start of a move -> 0.11.
+  # (ULTRA's standing dof kernel is exp(-20 mean err^2), sigma 0.05, but it only
+  # has to hold a fixed pose; teleop targets move.)
+  upper_sigma: 0.1
+  upright_sigma: 0.03           # SKILL L18: exp(-|g_xy|^2 / 0.03), 9 deg lean -> 0.40
+
+standing_cmd_threshold: 0.05    # |cmd_vel| below this = stand/manip (gait terms off)
+base_height_target: null        # null -> measured home pelvis height (assets/model_info.json)
+swing_height_target: 0.08       # URG _reward_feet_swing_height target (m, sole height)
+soft_dof_pos_limit: 0.9         # URG rewards.soft_dof_pos_limit
+soft_torque_limit: 0.95         # ULTRA smooth_rewards.soft_torque_limit
+# ULTRA smooth_rewards min_dist 0.25 / max_dist 0.65 / max_knee_dist 0.65.
+# DEVIATION: min 0.25 m sits ABOVE the G1's own home stance (0.237 m between
+# the ankle_roll links, measured by build_assets.py), so ULTRA penalises the
+# default pose; we use 0.20 m.
+feet_distance_band: [0.20, 0.65]
+knee_distance_band: [0.20, 0.65]
+
+termination:
+  base_height_min: 0.40         # pelvis (home 0.784 m); a fall passes it within ~0.3 s
+  # tilt ellipse (rewards.tilt_exceeded, shared with the CPU evaluator, M1).
+  # URG terminates at roll > 0.8 / pitch > 1.0 rad. scripts/reach_envelope.py
+  # measures the pelvis tilt the teleop poses need (< 10 deg) -> >= 35 deg
+  # headroom (skill L1 asks >= 15-20 deg).
+  max_tilt: 0.8
+  max_pitch_forward: 1.0
+
+weights:
+  # ---- task
+  tracking_lin_vel: 1.0         # URG 1.0 (at zero command this IS the stand-still reward)
+  tracking_yaw: 0.5             # URG tracking_ang_vel 0.5
+  tracking_upper: 1.5           # new (teleop arms); >= lin-vel so arm targets are honoured
+  base_height: -10.0            # URG base_height -10 (squared error)
+  alive: 0.15                   # URG alive 0.15
+  # ---- torso stability (URG + SKILL L18)
+  orientation: -1.0             # URG orientation -1 (|g_xy|^2)
+  torso_upright: 1.0            # SKILL L18 kernel
+  lin_vel_z: -2.0               # URG
+  ang_vel_xy: -0.05             # URG
+  base_acc: -0.002              # SKILL (X1 torso stability pack)
+  # ---- gait (URG phase clock; gated off while standing)
+  contact: 0.18                 # URG contact (stance/swing matches the clock)
+  feet_swing_height: -20.0      # URG
+  contact_no_vel: -0.2          # URG
+  hip_pos: -1.0                 # URG (hip roll/yaw away from 0)
+  feet_air_time: 0.0            # computed for the air-time gate only (URG weight 0)
+  feet_stance: 0.5              # SKILL (X1): both feet planted while standing / manip
+  # ---- ULTRA smooth pack (ULTRA scale / 15, see header)
+  action_rate: -0.006667        # ULTRA -0.1   (|a_t - a_{t-1}|, L2 norm)
+  torques: -6.667e-5            # ULTRA -0.001 (|tau|, L2 norm)
+  dof_vel: -2.667e-5            # ULTRA -0.0004 (sum qd^2)
+  dof_pos_limits: -5.0          # URG -5 with soft limit 0.9 (ULTRA -5/15, hard limits)
+  dof_torque_limits: -0.06667   # ULTRA -1 (sum relu(|tau|/limit - 0.95))
+  energy: -6.667e-6             # ULTRA -0.0001 (|tau * qd|, L2 norm)
+  delta_dof_vel_all: -1.333e-6  # ULTRA -2e-5 (sum over substeps of (qd_k - qd_0)^2)
+  delta_ang_vel_all: -3.333e-5  # ULTRA -5e-4 (same for pelvis angular velocity)
+  feet_orientation: -0.02333    # ULTRA -0.35 (foot gravity xy norm, both feet)
+  foot_slip: -0.006667          # ULTRA -0.1 (sqrt |v_foot_xy| while in contact)
+  feet_distance: -0.006667      # ULTRA -0.1 (100 x band violation / 2)
+  knee_distance: -0.006667      # ULTRA -0.1
+  # ---- terminal
+  termination: -100.0           # SKILL (H1-2/X1); applied once on the terminating step

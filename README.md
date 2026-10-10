@@ -1,239 +1,494 @@
-# g1-whole-body-rl: G1 29-DoF whole-body teleop controller (MuJoCo MJX, ULTRA-style, staged)
+# g1-whole-body-rl: G1 whole-body teleop controller training (MJX)
 
-The RL side of the hospital G1: MJX environments, configs, staged training, ONNX export and a
-plain-MuJoCo evaluation battery for a whole-body teleop controller. It reads the canonical G1 +
-BrainCo MJCF and meshes from the sibling repo `g1-brainco-description` and writes policies for
-the `g1_controller` package in `hospital-sim-ros2`. Both are expected next to this folder, which
-is how the master repo `hospital-sim` lays them out. `env.sh` from the master repo is only
-needed for the ROS side; training uses the `g1-mjx` conda environment. Paths below are relative
-to this folder unless they start with `../`.
+This repository is the RL side of the hospital G1. It holds MuJoCo MJX environments, configuration files,
+staged PPO training, teacher-to-student distillation, ONNX export and a plain-MuJoCo evaluation battery.
+The target is a 29-DoF whole-body teleop controller in the style of ULTRA (see `docs/ultra_port.md`). It
+reads the canonical G1 + BrainCo Revo2 MJCF and meshes from the sibling repository `g1-brainco-description`.
+It writes `exports/<name>/policy.onnx` and `policy.json` for the `g1_controller` package in
+`hospital-sim-ros2`. The master repository `hospital-sim` checks all of these out side by side, and
+`datasets/` at the master root holds the ULTRA motion data.
 
-Status: built and dry-run only. No training run has been started yet. Everything below is ready
-to launch once the go/no-go in section 8 is decided.
+Training uses the conda environment `g1-mjx`, never the master's `.venv`, and does not need `env.sh`. Paths
+in this file are relative to this folder unless they name a sibling repository or the master
+(`docs/interfaces.md`, `datasets/`). Commands are written to run from the master checkout root.
 
-Robot: Unitree G1 29-DoF rev 1.0 + BrainCo Revo2 (canonical model from `../g1-brainco-description/`).
-Deployment contract: hospital-sim `docs/interfaces.md` section 4 (`exports/<name>/policy.onnx` + `policy.json`).
-Parameter source: ULTRA (github.com/Sirui-Xu/ULTRA, arXiv 2603.03279). Pipeline and
-lessons come from the `training-humanoid-rl-policies` skill (reference ports: H1-2
-`UnitreeH1_2_Factory/Mujoco_unitree` and AgiBot X1 `AGIBOT/Mujoco_agibot`, whose
-wrappers, backend and PPO driver are reused here).
+Status on 2026-10-10: the code is built, unit-tested and dry-run only. No training run has started. The
+folder `exports/` is empty. Nothing is deployed on a real robot. The go/no-go for the first training
+campaign is in the section "Training plan".
 
-## 1. Layout
+## How it works
 
+The script `scripts/build_assets.py` reads `configs/robot.yaml` and takes the first robot source whose
+files exist. The canonical source is `g1-brainco-description/g1_29dof_brainco/mjcf/g1_29dof_brainco_fixedhands.xml`;
+a marked unitree_rl_gym model is the fallback. The script writes three MJCFs into `assets/`:
+
+- `g1_mjx.xml` for training: only the 8 sole spheres and the floor collide (11 geoms).
+- `g1_eval.xml` for evaluation: the source's mesh collisions (147 geoms).
+- `g1_eval_hands.xml`: the full model with 22 finger hinge joints and 51 motors.
+
+All three models get one motor per body joint, in the order of `docs/interfaces.md` section 2. Each motor
+has ctrlrange = 0.8 x effort, armature and a `home` keyframe from `configs/actuators.yaml`; the timestep is
+0.002 s. The script records the chosen source in `assets/PROVENANCE.md` and `assets/model_info.json`.
+
+The file `src/g1_wbc/env.py` defines `G1TeleopEnv`, a brax `PipelineEnv` on MJX, which is the training
+environment. The policy runs at 50 Hz and outputs 29 actions in [-1, 1]. At each of the 10 physics substeps
+(500 Hz), the environment recomputes the joint target `q* = clip(default_pose + a * action_scale, joint limits)`.
+It then applies `tau = clip(kp (q* - q) - kd qd, +-torque_limit)`; both run inside a `jax.lax.scan`. The
+module `commands.py` draws per-episode STAND / LOCO / MANIP segments, velocity commands and upper-body
+waypoints. The module `randomize.py` applies the ULTRA domain randomisation: friction, torso mass and CoM,
+motor strength, action delay, gravity, and velocity-kick pushes.
+
+The module `rewards.py` holds the Stage A/B reward terms; their weights are in `configs/rewards.yaml`. The
+observation is a frame of 116 values (`layout.OBS_TERMS`) plus a privileged vector of 73 values for the
+teacher. Episodes last 20 s (1000 steps).
+
+The script `train/train_teacher.py` calls `ppo_teacher.train_teacher`. This function runs one
+`brax.training.agents.ppo.train` per curriculum stage from `configs/train.yaml`, with 2048 parallel
+environments. The curriculum `stand` has the stages a1 to a5; the curriculum `teleop` has the stages b1 to
+b9. Every 5 M steps the function runs an evaluation, writes an orbax checkpoint to
+`outputs/checkpoints/<run>/ckpt_<step>` and appends a line to `evals.jsonl`. A stage passes when its best
+checkpoint clears the gates: velocity tracking, air time, survival and upper-body tracking. The next stage
+warm-starts from that checkpoint.
+
+The script `train/train_student.py` runs `distill_student.distill`. This is DAgger: the teacher acts on clean
+observations, and a CVAE student reads a 10-frame history under ULTRA sensor noise. The script saves
+`ckpt_best` when the teacher mixing coefficient, beta, reaches 0. The script `train/train_tracking.py` is
+Stage C: `tracking_env.G1TrackingEnv` tracks reference motions from `data/motions/*.npz`. The script
+`scripts/prepare_ultra_motions.py` makes these files from ULTRA's `[T, 630]` .pt clips (30 fps). It
+resamples them to 50 Hz and recomputes the key bodies by forward kinematics on our model.
+
+The script `export/export_policy.py` copies the student's flax parameters into a torch module layer by
+layer. It checks JAX against torch on 1000 inputs. It exports ONNX opset 17 with the input `obs_history`
+(float32, shape (1, 1160)) and the output `action` (shape (1, 29)). It checks onnxruntime against torch
+(tolerance 1e-4) and writes `policy.json` with every key the controller reads.
+
+The script `eval/run_battery.py` runs `sim2sim.Sim2Sim` on `assets/g1_eval.xml` in plain CPU MuJoCo. It
+loads only `policy.onnx` and `policy.json`, the way `g1_controller` does. It runs 11 scenarios (2 for the
+`stand` curriculum) with 50 episodes each and reports survival with 95 % Wilson intervals. With `--gate 0.9`
+it exits with code 1 if any scenario is below 0.9. The controller `g1_controller` resolves
+`$HG1_ROOT/g1-whole-body-rl/exports/<name>` when it runs.
+
+## Architecture
+
+```mermaid
+flowchart LR
+  desc["g1-brainco-description<br/>g1_29dof_brainco*.xml + meshes"] --> build["scripts/build_assets.py"]
+  build --> assets["assets/<br/>g1_mjx.xml, g1_eval.xml,<br/>g1_eval_hands.xml, model_info.json"]
+  cfg["configs/*.yaml<br/>robot, actuators, rewards,<br/>domain_rand, commands, train"] --> env
+  assets --> env["src/g1_wbc<br/>G1TeleopEnv / G1TrackingEnv (MJX)"]
+  env --> teacher["train/train_teacher.py<br/>brax PPO, stages a1-a5, b1-b9"]
+  env --> tracking["train/train_tracking.py<br/>Stage C motion tracking"]
+  teacher --> student["train/train_student.py<br/>DAgger -> CVAE student"]
+  tracking --> student
+  student --> ckpt["outputs/checkpoints/<run>/<br/>orbax ckpt_* + evals.jsonl"]
+  ckpt --> export["export/export_policy.py<br/>flax -> torch -> ONNX"]
+  export --> exp["exports/<name>/<br/>policy.onnx + policy.json"]
+  exp --> ctrl["hospital-sim-ros2<br/>g1_controller PolicyRunner"]
+  exp --> battery["eval/run_battery.py<br/>plain MuJoCo on g1_eval*.xml"]
+  assets --> battery
+  ultra["third_party/ULTRA (submodule)<br/>+ datasets/ultra/*.pt"] --> prep["scripts/prepare_ultra_motions.py"] --> tracking
+  ultra --> ueval["ultra_eval/<br/>released ULTRA teacher in MuJoCo"]
 ```
-g1-whole-body-rl/
-  run.sh                       # ALWAYS use: g1-mjx python, taskset 0-7,10-31, no LD_LIBRARY_PATH,
-                               # XLA_PYTHON_CLIENT_MEM_FRACTION=0.35 + no prealloc, quiet XLA logs
-  environment.yml, requirements.txt   # conda env g1-mjx (py3.11, jax 0.9.2 cuda12, mujoco(-mjx) 3.10,
-                                      # brax 0.14.2, flax, optax, orbax, onnx, onnxruntime, torch-cpu)
-  configs/
-    robot.yaml                 # model sources: g1-brainco-description canonical, else the marked FALLBACK
-    actuators.yaml             # layout, kp/kd/armature/effort/default pose/action scale (ULTRA)
-    domain_rand.yaml           # ULTRA DR + uniform obs noise
-    commands.yaml              # teleop modes, cmd_vel envelope, upper-body target generator, gait clock
-    rewards.yaml               # Stage A/B reward (unitree_rl_gym G1 + ULTRA smooth pack + skill)
-    train.yaml                 # PPO, networks, curricula stand/teleop, distillation
-    stage_c_tracking.yaml      # overlay: faithful ULTRA motion-tracking teacher (Stage C)
-    upper_body_poses.yaml      # GENERATED by scripts/reach_envelope.py (feasible teleop envelope)
-    robot_profile.g1.yaml      # profile for the skill's posture_ik / manifold scripts
-  assets/                      # GENERATED by scripts/build_assets.py: g1_mjx.xml (train),
-                               # g1_eval.xml (mesh collisions), g1_eval_hands.xml (full BrainCo hands),
-                               # model_info.json, PROVENANCE.md
-  src/g1_wbc/                  # layout, config, env (A/B), commands, rewards, randomize, networks,
-                               # ppo_teacher, curriculum, distill_student, sim2sim, battery,
-                               # motion_data + tracking_env (Stage C), wrappers/backend (from X1 port)
-  scripts/ build_assets.py bench.py reach_envelope.py prepare_ultra_motions.py
-           make_synthetic_motion.py build_motion_bank.py
-  train/   train_teacher.py (A/B) train_tracking.py (C) train_student.py (distil)
-  export/  export_policy.py    # flax -> torch -> ONNX + policy.json, parity-checked
-  eval/    run_battery.py      # plain-MuJoCo sim2sim battery, Wilson CIs, ONNX gate
-  tests/                       # 39 pytest tests (CPU), ~40 s
-  exports/<name>/              # deployment artefacts (empty: nothing trained yet)
-  outputs/                     # checkpoints, bench.json, eval JSONs, dry_run/ (proof, untrained)
-```
 
-Setup: `conda env create -f environment.yml` then
-`~/miniconda3/envs/g1-mjx/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu`.
-Check: `./run.sh -m pytest tests -q -p no:warnings`.
+The table lists the main pieces, their files and their roles.
 
-## 2. How to run each stage (commands only; H = user go/no-go first)
+| Piece | File | Role |
+|---|---|---|
+| Asset builder | `scripts/build_assets.py` | Source MJCF -> `assets/g1_mjx.xml`, `g1_eval.xml`, `g1_eval_hands.xml`, `model_info.json`, `PROVENANCE.md` |
+| Joint layout | `src/g1_wbc/layout.py` | 29 joint names, index groups, observation terms (116) and privileged terms (73), read from `configs/actuators.yaml` |
+| Config loader | `src/g1_wbc/config.py` | Loads `configs/*.yaml`, optional overlay (`stage_c_tracking.yaml`), `Stage` dataclass |
+| Teleop env | `src/g1_wbc/env.py` | `G1TeleopEnv`: 50 Hz policy, 500 Hz PD, obs, termination, Stage A/B |
+| Commands | `src/g1_wbc/commands.py` | STAND / LOCO / MANIP segments, cmd_vel envelope, upper-body waypoints, gait clock |
+| Rewards | `src/g1_wbc/rewards.py` | Stage A/B reward terms; weights in `configs/rewards.yaml` |
+| Domain rand | `src/g1_wbc/randomize.py` | ULTRA DR ranges from `configs/domain_rand.yaml` |
+| Networks | `src/g1_wbc/networks.py` | Teacher actor-critic factory, CVAE student (prior, encoder, decoder) |
+| Teacher trainer | `src/g1_wbc/ppo_teacher.py` | brax PPO per stage, orbax checkpoints, gates, warm starts, `evals.jsonl` |
+| Gates | `src/g1_wbc/curriculum.py` | Gate metrics from brax eval metrics, do-nothing floors |
+| Distillation | `src/g1_wbc/distill_student.py` | DAgger loop, ULTRA CVAE losses and schedules, `StudentJax` for inference |
+| Stage C | `src/g1_wbc/tracking_env.py`, `motion_data.py` | ULTRA tracking reward and termination; .pt -> .npz -> padded JAX motion library |
+| Wrappers / backend | `src/g1_wbc/wrappers.py`, `backend.py` | brax training wrappers (from the X1 port), JAX cpu/gpu selection |
+| Evaluator | `src/g1_wbc/sim2sim.py`, `battery.py` | Plain-MuJoCo sim2sim from the sidecar only; scenario set; Wilson CI |
+| Entry points | `train/train_teacher.py`, `train_student.py`, `train_tracking.py` | CLI for Stage A/B teacher, student distillation, Stage C teacher |
+| Export | `export/export_policy.py` | flax -> torch -> ONNX + `policy.json`, parity-checked |
+| Battery CLI | `eval/run_battery.py` | `--export` / `--teacher` / `--student`, `--hands`, `--gate` |
+| Run script | `run.sh` | Runs any entry point in conda `g1-mjx` with the machine hygiene (section Install) |
+| ULTRA baseline | `ultra_eval/` | ULTRA's released teacher on our robot, own README |
+
+## Dependencies
+
+The system table lists the tools of this machine with the versions as installed.
+
+| Item | Version / note |
+|---|---|
+| Ubuntu | 22.04.5 LTS |
+| NVIDIA driver, GPU | 580.178.04, GeForce RTX 3070 8 GB, shared with Isaac Sim. JAX is limited to 35 % of it (`XLA_PYTHON_CLIENT_MEM_FRACTION=0.35`, no preallocation; set by `run.sh`) |
+| CUDA | None installed system-wide; `jax[cuda12]` wheels bring their own CUDA 12 libraries |
+| conda | 25.5.0 (Miniconda at `~/miniconda3`); env `g1-mjx` = Python 3.11.16, env `ultra-sim2sim` = Python 3.10.22 (for `ultra_eval/`) |
+| taskset (util-linux) | `run.sh` pins to CPUs 0-7,10-31 (logical CPUs 8 and 9 are defective on this machine) |
+| git with submodules | `third_party/ULTRA` |
+| ROS 2, Isaac Sim, uv, colcon, ffmpeg | Not used by this repository |
+
+The Python table lists the packages of the conda environment `g1-mjx`, with versions from its freeze of
+2026-10-10. The direct imports come from a grep over `src/ train/ export/ eval/ scripts/ tests/`: brax,
+flax, jax, mujoco, numpy, onnxruntime, optax, orbax, pytest, torch and yaml. ONNX enters through
+`torch.onnx.export`.
+
+| Package | Version | Used by |
+|---|---|---|
+| jax, jaxlib | 0.9.2 | everything in `src/g1_wbc`; `jax-cuda12-plugin` and `jax-cuda12-pjrt` 0.9.2 for the GPU |
+| mujoco | 3.10.0 | asset build, eval, env model loading |
+| mujoco-mjx | 3.10.0 | `G1TeleopEnv` physics (through brax) |
+| brax | 0.14.2 | `PipelineEnv`, PPO, wrappers, running statistics |
+| flax | 0.12.6 | network modules (`networks.py`) |
+| optax | 0.2.8 | student optimiser (`distill_student.py`) |
+| orbax-checkpoint | 0.12.1 | checkpoints (`ppo_teacher.py`) |
+| numpy | 2.4.6 | everywhere; must stay < 2.5 for jax 0.9.x |
+| PyYAML | 6.0.3 | configs |
+| onnx | 1.23.0 | ONNX export (through torch) |
+| onnxruntime | 1.30.0 | export parity check, `sim2sim.OnnxPolicy` |
+| torch | 2.14.0+cpu | export only, and `motion_data.load_ultra_pt`; installed from the PyTorch CPU index, not from `requirements.txt` |
+| pytest | 9.1.1 | `tests/` |
+| ml_collections 1.1.0, etils 1.14.0, mediapy 1.2.7, imageio-ffmpeg 0.6.0, matplotlib 3.11.2 | | not imported by this repository; kept in `requirements.txt` from the reference stack |
+
+The file `requirements.txt` lists the same packages with `==` pins, and `environment.yml` installs it into
+`g1-mjx`. The folder `ultra_eval/` has its own environment; see `ultra_eval/README.md`.
+
+The data table lists the data and assets that are not in this git repository.
+
+| Item | Where it comes from | Size |
+|---|---|---|
+| Robot model | `g1-brainco-description/g1_29dof_brainco/mjcf/` + meshes (sibling repository, cloned by the master) | in git there |
+| `assets/*.xml`, `model_info.json`, `PROVENANCE.md` | generated by `scripts/build_assets.py`; committed here, regenerate after a model or `actuators.yaml` change | 140 kB |
+| `third_party/ULTRA` | git submodule, github.com/Sirui-Xu/ULTRA at `ec972c7`. Code is Apache-2.0. The released teacher weights `ultra/weights/teacher_ultra_inference.pth` ship in the submodule and are for non-commercial research and education only (trained on AMASS and BONES-SEED motions; `docs/teacher-model-card.md` there) | |
+| ULTRA motion data | `datasets/ultra/OMOMO_retarget_aug_v4/` at the master root: 4,066 `.pt` clips, 3.3 GB on disk, Google Drive id `1g6OzxXGJczZ4klVqKCpTzy-orKkllCr4` (ULTRA README "Data"). Git-ignored. Needed for Stage C and `ultra_eval/` | 3.3 GB |
+| `data/motions/*.npz` | output of `scripts/prepare_ultra_motions.py` (empty today; Stage C has only been dry-run on `data/motions_synthetic/`) | |
+| `configs/upper_body_poses.yaml` | generated by `scripts/reach_envelope.py`; committed | |
+| `outputs/` | checkpoints, `bench.json`, eval JSONs, dry-run artefacts; git-ignored | |
+| Trained policies | none exist. `exports/` is empty | |
+| Fallback robot model | `~/ntu_dev/unitree_rl_gym/resources/robots/g1_description/g1_29dof_rev_1_0.xml`, only used if the canonical model is missing (it is not) | |
+
+## Install
+
+Start from a fresh clone of the master repository `hospital-sim`. The master clones `g1-whole-body-rl`,
+`g1-brainco-description` and `hospital-sim-ros2` side by side. Run these commands in order from the master
+root:
 
 ```bash
-cd g1-whole-body-rl
-./run.sh scripts/build_assets.py            # after any g1-brainco-description or actuators.yaml change
-./run.sh scripts/reach_envelope.py          # regenerate the teleop target envelope
-./run.sh -m pytest tests -q -p no:warnings
+# 1. Get the ULTRA submodule (code and released teacher weights).
+git -C g1-whole-body-rl submodule update --init third_party/ULTRA
 
-# Stage A - stand & stabilise (deployable fallback)
-./run.sh train/train_teacher.py --curriculum stand --run_name stand_v1
-./run.sh train/train_student.py --curriculum stand --teacher_ckpt outputs/checkpoints/stand_v1/<best> --run_name stand_student_v1
-./run.sh export/export_policy.py --checkpoint outputs/checkpoints/stand_student_v1/ckpt_best --name g1_stand_v1
-./run.sh eval/run_battery.py --export exports/g1_stand_v1 --episodes 50 --gate 0.9
+# 2. Create the conda environment g1-mjx (Python 3.11, installs requirements.txt), pinned to the good CPUs.
+(cd g1-whole-body-rl && taskset -c 0-7,10-31 conda env create -f environment.yml)
 
-# Stage B - teleop controller (b1 warm-starts from Stage A's a1 best checkpoint)
-./run.sh train/train_teacher.py --curriculum teleop --run_name teleop_v1 \
-        --init_from outputs/checkpoints/stand_v1/<a1 best> --start_stage b1_walk_calm
-./run.sh eval/run_battery.py --teacher outputs/checkpoints/teleop_v1/<best>        # teacher battery
-./run.sh train/train_student.py --curriculum teleop --teacher_ckpt <best> --run_name teleop_student_v1
-./run.sh export/export_policy.py --checkpoint outputs/checkpoints/teleop_student_v1/ckpt_best --name g1_teleop_v1
-./run.sh eval/run_battery.py --export exports/g1_teleop_v1 --gate 0.9 [--hands]
+# 3. Install the torch CPU wheel (export only; not in requirements.txt, see the comment there).
+taskset -c 0-7,10-31 ~/miniconda3/envs/g1-mjx/bin/pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
 
-# Stage C - ULTRA tracking teacher (needs the ULTRA data, see configs/stage_c_tracking.yaml)
-./run.sh scripts/prepare_ultra_motions.py --src data/ultra/OMOMO_retarget_aug
-./run.sh train/train_tracking.py --run_name track_v1
-./run.sh train/train_student.py --curriculum tracking --overlay stage_c_tracking.yaml --teacher_ckpt <best> --run_name track_student_v1
-./run.sh scripts/build_motion_bank.py       # optional: ULTRA upper-body frames as Stage B targets
-
-# dry runs (the real brax scan, tiny sizes; what was run here)
-./run.sh train/train_teacher.py --curriculum teleop --run_name smoke --dry_run
-./run.sh train/train_student.py --teacher_ckpt outputs/dry_run/smoke/ckpt_0 --run_name smoke_s --dry_run
-./run.sh scripts/make_synthetic_motion.py && ./run.sh train/train_tracking.py --run_name smoke_c --dry_run
+# 4. Generate the MJCFs from g1-brainco-description, then run the tests.
+g1-whole-body-rl/run.sh scripts/build_assets.py
+g1-whole-body-rl/run.sh -m pytest tests -q
 ```
-Long runs: launch detached (`nohup ./run.sh ... > outputs/<run>.log 2>&1 &`), watch
-`outputs/checkpoints/<run>/evals.jsonl` / the log (gate metrics every eval), stop with
-`kill`, resume with `--resume` (restores params + normaliser + stage; Adam restarts).
 
-## 3. Design
+The script `run.sh` is the only supported way to run Python here. It does these things:
 
-* **Two MJCF models + one with hands**, generated from `../g1-brainco-description/` (`build_assets.py`):
-  `g1_mjx.xml` keeps only the 8 sole spheres + floor as colliders (MJX speed);
-  `g1_eval.xml` keeps g1-brainco-description's mesh collisions; `g1_eval_hands.xml` is the full model
-  (22 finger hinge joints interleaved in qpos -> everything addresses joints BY NAME).
-  Sole geometry identical in all three (skill M14); the ankle_pitch collision mesh that
-  could touch the floor only in eval was removed. Armature, ctrlrange = 0.8 x effort,
-  `home` keyframe = default pose, 500 Hz. Skill `preflight_model_check.py`: 0 FAIL.
-* Action (all stages): `q* = clip(default_qpos + a * action_scale, joint limits)`,
-  a in [-1, 1] for all 29 joints (whole body, as ULTRA's teacher); 500 Hz PD
-  `tau = clip(kp(q*-q) - kd qd, +-0.8 effort)`; 50 Hz policy. The upper body tracks
-  `/g1/upper_body_target` via the reward, so the contract rule needs no special case.
-* **Observation frame (116, raw; normalisation in the ONNX graph)**, names = g1_controller's:
-  `base_ang_vel 3, projected_gravity 3, cmd_vel 3, cmd_base_height 1 (optional, default-off,
-  always 0 so far), upper_body_target_rel 17, joint_pos_rel 29, joint_vel 29, last_action 29,
-  gait_phase 2 (unitree_rl_gym clock, period 0.8 s, same as the placeholder)`.
-  Student input = 10 frames flattened oldest-first `(1, 1160)`; reset-fill with the first
-  frame (ULTRA). Verified by a test that the REAL `g1_controller/policy.py` builds the
-  identical frame, and that the MJX training obs equals the CPU evaluator's obs.
-* **Teacher**: privileged (73: every persistent DR latent + base velocity/height/contacts;
-  the push kick is NOT privileged, skill L20), noise-free (L15), MLP [1024,1024,512] relu.
-* **Student**: ULTRA CVAE (prior over history, residual posterior over
-  history + clean teacher obs, decoder on [s_t, z], deploy with z = prior mean),
-  DAgger with ULTRA's beta, KL/prior-action/smoothness schedules, trained under full
-  ULTRA uniform sensor noise, labels from the teacher on clean obs (L21).
-* **Commands** (`commands.py`): per-episode segments STAND / LOCO / MANIP with only the
-  contract's legal transitions (never LOCO<->MANIP), cmd_vel resampled every 2-6 s inside
-  the contract envelope (vx -0.5..0.8, vy +-0.4, wz +-1.0), upper-body waypoints from the
-  feasible library/box with min-jerk moves at <= 2 rad/s joint speed, 1 s blend back to
-  default when MANIP ends. Optional ULTRA motion-bank source once the data exists.
-* **Teleop envelope** (`reach_envelope.py`, skill reach analysis adapted): 263/276 library
-  poses statically feasible on the full model (no self-intersection measured with
-  `mj_geomDistance` - g1-brainco-description's MJCF disables self-collision -, CoM margin m_hat >= 0.22,
-  static gravity torques inside the clip); both-arms-high / overhead rejected (hit the
-  head). Feasible joint box 90 % collision-free (left shoulder roll >= 0.14 rad, elbow >= -0.61).
-  Pelvis tilt needed ~0 deg vs 45.8 deg roll / 57 deg forward termination (headroom >> 20 deg).
-* **Curricula** (`train.yaml`, one factor per stage, pinned by tests):
-  A: a1 stand calm -> a2 DR 0.5 -> a3 DR 1.0 -> a4 pushes 0.5 -> a5 pushes 1.0.
-  B: b1 walk (cmd 0.5, calm) -> b2 cmd 1.0 -> b3 manip arms 0.5 -> b4 arms 1.0 -> b5 DR 0.5
-  -> b6 DR 1.0 -> b7 mode switches -> b8 pushes 0.5 -> b9 pushes 1.0 (full spec).
-  Gates: lin-vel tracking = (do-nothing floor + 1)/2 (floors computed, test-pinned),
-  air time, survival, upper-body tracking; stages pass on their best checkpoint; warm
-  starts reset never-varied normaliser dims (M12).
-* **Stage C** (`tracking_env.py`, overlay): ULTRA's multiplicative tracking reward
-  (feet key-pos p=10, link directions r=5, key-body velocity pv=0.1, standing-dof stage I,
-  sigmoid blends) x exp(S/10 or /15) with the ULTRA smooth scales, ULTRA termination
-  (0.15 m / 0.5 m first 10 steps / feet deviation 0.5 m after 30 steps), standing prefix,
-  hybrid init 0.1; key bodies recomputed by FK on our model. Runs today on STUB motions.
+- It uses `~/miniconda3/envs/g1-mjx/bin/python`; the variable `G1_MJX_PYTHON` overrides this.
+- It clears `LD_LIBRARY_PATH`, because a conda environment's stale libnvJitLink breaks jax CUDA.
+- It runs the command under `taskset -c 0-7,10-31`.
+- It sets `XLA_PYTHON_CLIENT_MEM_FRACTION=0.35`, `XLA_PYTHON_CLIENT_PREALLOCATE=false`,
+  `TF_CPP_MIN_LOG_LEVEL=3` and `PYTHONPATH=src`.
+- It changes into this folder, so script paths after `run.sh` are relative to this folder.
 
-## 4. Where every ULTRA parameter went
+Stage C needs the ULTRA archive in `datasets/ultra/` at the master root (see Dependencies). Download it
+before you run `prepare_ultra_motions.py`.
 
-| ULTRA source (file:key) | value | here |
-|---|---|---|
-| humanoid_g1.py `stiffness` | 40.18/99.10/28.50/14.25/16.78 per DoF | actuators.yaml kp |
-| humanoid_g1.py `damping` | 2.558/6.309/1.814/0.907/1.068 | actuators.yaml kd |
-| humanoid_g1.py `armature` | 0.010178 ... 0.00425 | actuators.yaml armature -> both MJCFs |
-| humanoid_g1.py `effort`, `torque_limits = effort*0.8` | 88/139/88/139/50/50, waist 88/50/50, arms 25.../5/5; x0.8 | actuators.yaml effort_ultra, torque_limit_fraction (canonical 35 Nm used, see 7) |
-| humanoid_g1.py `action_scale = effort/stiffness` (computed, unused by ULTRA) | 2.19/1.40/1.75 | x0.25 -> legs/waist action_scale |
-| g1_teacher.yaml control.action_scale (docs/deploy.md "action * 3.0") | 3 | arms action_scale |
-| ultra_g1.py `init_dof` | legs -0.1/0/0/0.3/-0.2/0, waist 0, arms 0/0/0/0.5/0/0/0 | default_pose, home keyframe |
-| g1_teacher.yaml env.controlFrequencyInv 17 @ 1 ms | 58.8 Hz | NOT ported: contract 50 Hz / 500 Hz |
-| domain_rand friction_range | [0.5, 2.0] | domain_rand.yaml ground (floor + soles) |
-| added_mass_range / added_com_range (torso_link) | +-3 kg / +-0.05 m | domain_rand.yaml body |
-| push_robots, push_interval_s, max_push_vel_xy | every 4 s, set base v_xy U(+-1.0) | domain_rand.yaml push (velocity kick) |
-| motor_strength_range (kp, kd per DoF) | [0.8, 1.2] | domain_rand.yaml actuation |
-| action_delay (randint(2)) | 0-1 control step | domain_rand.yaml actuation |
-| gravity_range / gravity_rand_interval_s | +-0.1 m/s^2 / 4 s | domain_rand.yaml gravity |
-| noise.noise_scales (uniform, noise_level 1) | dof_pos .01, dof_vel .1, ang_vel .05, imu .05 | domain_rand.yaml obs_noise (uniform, student only) |
-| smooth_rewards.scales | action_rate -0.1, torques -0.001, dof_vel -4e-4, dof_pos_limits -5, dof_torque_limits -1, energy -1e-4, delta_dof_vel_all -2e-5, delta_ang_vel_all -5e-4, feet_orientation -0.35, foot_slip -0.1, feet/knee_distance -0.1, stand_on_feet -1, termination -50 | Stage C: raw inside exp(S/15); Stage A/B: /15 additive (rewards.yaml) |
-| smooth_rewards min/max_dist, soft_torque_limit | 0.25/0.65, 0.95 | rewards.yaml (min 0.20, see 5) |
-| rewardWeights p/r/pv/eg1 | 10/5/0.1/0 | stage_c_tracking.yaml |
-| env.scaling, terminationHeight, stateInit Hybrid, hybridInitProb, keyBodies | 0.8, 0.15, Hybrid, 0.1, 14 bodies | stage_c_tracking.yaml |
-| rlg g1_teacher: mlp [1024,1024,512] relu, gamma .99, tau .95, e_clip .2, grad_norm 1, normalize_input | | train.yaml networks/ppo (gamma 0.98 A/B, 0.988 C) |
-| rlg g1_teacher: lr 2e-5, horizon 32, minibatch 16384, mini_epochs 6, entropy 0 | | stage_c_tracking.yaml ppo |
-| sigma_init -2.9 (fixed std) | 0.055 x 3 = 0.165 rad | networks.init_joint_noise_rad (initial per-joint std) |
-| g1_student_vae.yaml history_len 10; rlg vae_dim 64, lr 2e-4 -> 5e-5, mini_epochs 2, expert_loss_coef 1 | | train.yaml student / distill |
-| ultra_agent_distill_vae.py beta, kld 0.001->0.2, prior-action 0->0.6, smooth 1e-4->1e-3 | | train.yaml distill |
-| ULTRA README data links | Google Drive | stage_c_tracking.yaml header |
+## Run
 
-## 5. Deviations from ULTRA (and why)
+All stages can be run; none has run beyond the dry runs below. In the commands, `<best>` is the checkpoint
+that `outputs/checkpoints/<run>/evals.jsonl` names as the best passing one for the last stage.
 
-1. **50 Hz policy / 500 Hz PD** instead of 58.8 Hz / 1 kHz: the contract fixes control_dt 0.02, sim_dt 0.002.
-2. **Action = default + a*scale with per-joint scales** (legs/waist 0.25*effort/kp, arms 3.0)
-   instead of `3*a` absolute for all: brax PPO learns its std (~0.7 at init), so 3 rad leg
-   scales would inject ~2 rad of noise at step 0; the initial std is set per joint to match
-   ULTRA's 0.165 rad joint noise, and the policy's last layer is initialised at x0.01.
-3. **Stage A/B reward is additive** (unitree_rl_gym G1 locomotion terms + skill torso-stability
-   terms + ULTRA smooth pack at scale/15 = first-order expansion of ULTRA's multiplicative form).
-   ULTRA has no velocity-command teleop mode to port; Stage C keeps ULTRA's multiplicative form exactly.
-4. **Projected gravity instead of roll/pitch Euler** in the student obs (no singularity; same noise amplitude).
-5. **feet/knee distance min 0.20 m** (ULTRA 0.25 m is above the G1's own 0.237 m stance).
-6. **Per-env per-episode action delay and push phase** (ULTRA draws one delay/push tick for all envs).
-7. **Objects, interaction-graph, hand-contact, contact-force terms dropped in Stage C**
-   (no objects/contact forces in this MJX scene); `mid360_link` key body dropped,
-   `rubber_hand` -> `wrist_yaw_link`. ULTRA's multimodal transformer student (point clouds,
-   modality masks) reduced to a proprioceptive-history CVAE.
-8. **Torque clip 0.8 x effort in training, full effort in deployment**: g1_controller loads
-   `torque_limit` but the motor driver / sim clip at full effort, so deployment has 25 %
-   more authority than training (conservative direction; ULTRA did the same).
-9. **Brax PPO has no critic_coef / bounds_loss**; Stage A/B use the skill-validated brax PPO
-   settings (lr 3e-4, entropy 5e-3, 4 epochs) rather than rl_games' lr 2e-5.
+```bash
+# Regenerate the assets after a g1-brainco-description or configs/actuators.yaml change; then run the tests again.
+g1-whole-body-rl/run.sh scripts/build_assets.py
+# Regenerate the feasible upper-body target envelope (configs/upper_body_poses.yaml), about 3000 samples.
+g1-whole-body-rl/run.sh scripts/reach_envelope.py
+# Measure env-step throughput per num_envs -> outputs/bench.json (about 1 min per size, including jit).
+g1-whole-body-rl/run.sh scripts/bench.py --backend gpu --num_envs 1024,2048
 
-## 6. Benchmark (RTX 3070, shared, XLA <= 35 %)
+# Stage A: stand and stabilise (deployable fallback). Prints the gate metrics every 5 M steps.
+g1-whole-body-rl/run.sh train/train_teacher.py --curriculum stand --run_name stand_v1
+g1-whole-body-rl/run.sh train/train_student.py --curriculum stand --teacher_ckpt outputs/checkpoints/stand_v1/<best> --run_name stand_student_v1
+g1-whole-body-rl/run.sh export/export_policy.py --checkpoint outputs/checkpoints/stand_student_v1/ckpt_best --name g1_stand_v1
+g1-whole-body-rl/run.sh eval/run_battery.py --export exports/g1_stand_v1 --episodes 50 --gate 0.9
 
-Env step only (`scripts/bench.py`, full-spec b9 env): 256 envs 10.1k, 1024 19.9k (17.0k rerun),
-2048 18.9k, 4096 19.6k, 8192 20.7k env steps/s -> flat from ~1024. Chosen **num_envs 2048**
-(= the H1-2-validated PPO geometry, 512 x 4 minibatches x 20 unroll). Full PPO incl. the
-1024-wide nets (`--ppo_bench`, differenced 16 vs 4 iterations): **~13k env steps/s**,
-plus ~7 min jit per stage.
+# Stage B: teleop controller (b1 warm-starts from Stage A's best a-stage checkpoint).
+g1-whole-body-rl/run.sh train/train_teacher.py --curriculum teleop --run_name teleop_v1 \
+    --init_from outputs/checkpoints/stand_v1/<best> --start_stage b1_walk_calm
+g1-whole-body-rl/run.sh eval/run_battery.py --teacher outputs/checkpoints/teleop_v1/<best>
+g1-whole-body-rl/run.sh train/train_student.py --curriculum teleop --teacher_ckpt outputs/checkpoints/teleop_v1/<best> --run_name teleop_student_v1
+g1-whole-body-rl/run.sh export/export_policy.py --checkpoint outputs/checkpoints/teleop_student_v1/ckpt_best --name g1_teleop_v1
+g1-whole-body-rl/run.sh eval/run_battery.py --export exports/g1_teleop_v1 --gate 0.9           # add --hands for g1_eval_hands.xml
 
-## 7. Dry-run proof (untrained, `outputs/dry_run/`)
+# Stage C: ULTRA motion-tracking teacher (needs datasets/ultra/OMOMO_retarget_aug_v4 at the master root).
+g1-whole-body-rl/run.sh scripts/prepare_ultra_motions.py --src ../datasets/ultra/OMOMO_retarget_aug_v4 --out data/motions
+g1-whole-body-rl/run.sh train/train_tracking.py --run_name track_v1
+g1-whole-body-rl/run.sh train/train_student.py --curriculum tracking --overlay stage_c_tracking.yaml --teacher_ckpt outputs/checkpoints/track_v1/<best> --run_name track_student_v1
+g1-whole-body-rl/run.sh scripts/build_motion_bank.py       # optional: ULTRA upper-body frames as Stage B targets
 
-* Teacher: `train_teacher.py --dry_run` ran the real brax training scan on the full-spec
-  b9 env (64 envs, 3 iterations): evals printed with every gate metric, checkpoints written,
-  best-checkpoint selection ran.
-* Student: `train_student.py --dry_run` 6 DAgger iterations (beta 1 -> 0): expert loss
-  0.21 -> 0.024, prior-action loss 0.042 -> 0.006.
-* Export: flax -> torch -> ONNX parity 3.1e-7 / 3.1e-7; the REAL g1_controller
-  `PolicyRunner` loads it (frame 116, input 1160).
-* Sim2sim: battery runs from policy.onnx + policy.json only on g1_eval.xml and
-  g1_eval_hands.xml (untrained policy falls, as it must).
-* Stage C: `train_tracking.py --dry_run` on STUB motions ran the scan end-to-end.
+# Dry runs: the real brax training scan at tiny sizes (64 envs, 3 iterations). This is not training.
+g1-whole-body-rl/run.sh train/train_teacher.py --curriculum teleop --run_name smoke --dry_run
+g1-whole-body-rl/run.sh train/train_student.py --teacher_ckpt outputs/dry_run/smoke/ckpt_0 --run_name smoke_s --dry_run
+g1-whole-body-rl/run.sh scripts/make_synthetic_motion.py && g1-whole-body-rl/run.sh train/train_tracking.py --run_name smoke_c --dry_run
+```
 
-## 8. Pre-flight checklist and proposed training plan (hard stop H: user decides)
+For long runs, follow these steps:
 
-See the final report / `outputs/` for the per-section results. Proposed runs (~13k steps/s):
+1. Run detached: `nohup g1-whole-body-rl/run.sh ... > g1-whole-body-rl/outputs/<run>.log 2>&1 &`.
+2. Watch `outputs/checkpoints/<run>/evals.jsonl` or the log; the gate metrics appear at every evaluation.
+3. Stop the run with `kill`.
+4. Resume with `--resume`; this restores the parameters, the normaliser and the stage, and Adam restarts.
 
-| run | budget | wall-clock | pass criteria |
+Expect about 7 min of jit per stage and about 13k env steps/s at 2048 parallel environments (section
+Benchmark).
+
+## Test / check
+
+```bash
+# Run the test suite on the CPU; expect 39 passed in about 35 s.
+XLA_PYTHON_CLIENT_MEM_FRACTION=0.35 g1-whole-body-rl/run.sh -m pytest tests -q
+```
+
+Expected output: `39 passed, 3 warnings` in about 35 s. The run on 2026-10-10 took 33.93 s; the warnings are
+torch.onnx deprecation notices. The tests run on the CPU and cover these areas:
+
+- `test_config.py`: config and curriculum pins.
+- `test_model.py`: the generated models (joint order, sole geometry, home keyframe, ctrlrange).
+- `test_env.py`: environment reset and step shapes, and the observation layout.
+- `test_rewards.py`: the reward terms.
+- `test_normalizer.py`: the normaliser warm start.
+- `test_stage_c.py`: the Stage C data path.
+- `test_export_contract.py`: the export contract. The real `g1_controller/policy.py` loads a dry-run export
+  and builds the identical 116-value frame; the MJX training observation equals the CPU evaluator's
+  observation.
+
+Two other checks apply:
+
+1. The command `g1-whole-body-rl/run.sh scripts/build_assets.py` must leave `assets/` unchanged
+   (`git -C g1-whole-body-rl status`).
+2. The file `assets/PROVENANCE.md` must say `robot_canonical`.
+
+## Layout
+
+The table lists the files and folders of this repository.
+
+| Path | What |
+|---|---|
+| `run.sh` | Run script: conda `g1-mjx` python, CPU pinning, XLA 35 %, `PYTHONPATH=src` |
+| `environment.yml`, `requirements.txt` | conda env `g1-mjx` definition and pinned Python deps |
+| `configs/robot.yaml` | Robot model sources (canonical `g1-brainco-description`, marked fallback) and output paths |
+| `configs/actuators.yaml` | Joint layout, kp/kd/armature, effort sets (`effort_source: canonical` = 35 N m ankles and waist roll/pitch; `ultra` = 50 N m), torque_limit_fraction 0.8, default pose, action scale |
+| `configs/domain_rand.yaml` | ULTRA DR ranges and uniform observation noise |
+| `configs/commands.yaml` | Teleop modes, cmd_vel envelope, upper-body target generator, gait clock (0.8 s) |
+| `configs/rewards.yaml` | Stage A/B reward weights, kernels, termination thresholds |
+| `configs/train.yaml` | PPO, networks, curricula `stand` (a1-a5) and `teleop` (b1-b9), distillation, checkpoints |
+| `configs/stage_c_tracking.yaml` | Overlay for the ULTRA motion-tracking teacher (Stage C, stages c1-c2) |
+| `configs/upper_body_poses.yaml` | Generated by `scripts/reach_envelope.py`: feasible teleop pose library and joint box |
+| `configs/robot_profile.g1.yaml` | Profile for the `training-humanoid-rl-policies` skill's posture_ik / manifold scripts |
+| `assets/` | Generated by `scripts/build_assets.py`: `g1_mjx.xml`, `g1_eval.xml`, `g1_eval_hands.xml`, `model_info.json`, `PROVENANCE.md` |
+| `src/g1_wbc/` | Library (see Architecture table) |
+| `scripts/` | `build_assets.py`, `bench.py`, `reach_envelope.py`, `prepare_ultra_motions.py`, `make_synthetic_motion.py`, `build_motion_bank.py` |
+| `train/` | `train_teacher.py` (A/B), `train_tracking.py` (C), `train_student.py` (distil) |
+| `export/export_policy.py` | flax -> torch -> ONNX + `policy.json` |
+| `eval/run_battery.py` | Plain-MuJoCo battery, Wilson CIs, ONNX gate |
+| `tests/` | 39 pytest tests, CPU, about 35 s |
+| `data/motions_synthetic/` | 8 stub motions for the Stage C dry run; `data/motions/` = prepared ULTRA motions (empty) |
+| `docs/ultra_port.md` | Where every ULTRA parameter went; deviations from ULTRA |
+| `third_party/ULTRA/` | Git submodule, unmodified |
+| `ultra_eval/` | ULTRA's released teacher on our robot (own README, conda env `ultra-sim2sim`) |
+| `exports/<name>/` | Deployment artefacts (empty: nothing trained) |
+| `outputs/` | Git-ignored: checkpoints, `bench.json`, `eval/*.json`, `dry_run/` |
+
+## Interfaces to other repositories
+
+This repository reads these items from its siblings and from the master.
+
+| From | What |
+|---|---|
+| `g1-brainco-description` | `g1_29dof_brainco/mjcf/g1_29dof_brainco_fixedhands.xml` (train, eval), `g1_29dof_brainco.xml` (eval with hands), meshes; read by `scripts/build_assets.py` and `ultra_eval/build_ultra_robot.py` (also `g1_29dof_brainco/robot_spec.json`) |
+| `hospital-sim-ros2` | `tests/test_export_contract.py` imports `g1_controller/g1_controller/policy.py` to prove that the frame layout matches |
+| master `datasets/ultra/` | ULTRA `.pt` motion clips (Stage C, `ultra_eval/`) |
+| master `docs/interfaces.md` | Joint order (section 2), controller modes (3.2), policy artefact contract (section 4), machine notes |
+
+This repository provides `exports/<name>/policy.onnx` and `policy.json`, the contract of
+`docs/interfaces.md` section 4. The controller (`controller_node.resolve_policy`) looks for
+`$HG1_ROOT/g1-whole-body-rl/exports/<name>/policy.json` when it runs with `policy:=<name>`. It builds its
+observation from the `obs` list of the sidecar only.
+
+The sidecar that `export_policy.py` writes contains three groups of keys:
+
+- The section 4 keys: `name`, `control_dt` 0.02, `sim_dt` 0.002, `joint_names` [29], `controlled_joints`
+  [0..28], `default_qpos`, `action_scale` [29], `kp`, `kd`, `torque_limit` [29], `obs` [9 terms],
+  `history_len` 10, `commands`, `placeholder` false, `action_clip` 1.0.
+- Additive keys that the controller also reads: `onnx` (`file`, `input` "obs_history", `input_shape`
+  [1, 1160], `output` "action", `output_shape` [1, 29], `opset` 17), `joint_limits` [29][lo, hi],
+  `home_pelvis_height`, `command_details.base_height.enabled`, `gait.period_s`.
+- Documentation keys: `obs_definitions`, `history`, `action_rule`, `upper_body_joint_names`, `training`,
+  `robot`, `export_parity`.
+
+The file `policy.py` does these steps:
+
+1. It concatenates the last `history_len` frames, oldest first, and fills the history with the first frame
+   on reset.
+2. It feeds raw values; the normalisation is inside the ONNX graph.
+3. It clips the action to +-`action_clip`.
+4. It sets `q_target = default_qpos + action * action_scale` for the controlled joints and clips the result
+   to `joint_limits`.
+
+This repository publishes no ROS topics and reads none.
+
+## Design notes
+
+The robot is a Unitree G1 29-DoF rev 1.0 with BrainCo Revo2 hands: 33.83 kg, home pelvis height 0.784 m,
+feet 0.237 m apart. The parameters come from ULTRA. The pipeline and lessons come from the
+`training-humanoid-rl-policies` skill and its reference ports: H1-2 (`UnitreeH1_2_Factory/Mujoco_unitree`)
+and AgiBot X1 (`AGIBOT/Mujoco_agibot`). This repository reuses their wrappers, backend and PPO driver. The
+ULTRA parameter map and the nine deviations from ULTRA are in `docs/ultra_port.md`.
+
+The file `g1_mjx.xml` keeps only the 8 sole spheres and the floor as colliders, because MJX cost scales
+with the number of contact pairs. It uses the MJX-friendly solver settings that the H1-2 and X1 ports
+validated: Newton, 2 iterations, pyramidal. The file `g1_eval.xml` keeps the source's mesh collisions. The
+file `g1_eval_hands.xml` is the full model; its 22 finger hinge joints are interleaved in qpos, so all code
+addresses joints by name. The sole geometry is identical in all three models. The ankle_pitch collision
+mesh, which could touch the floor only in evaluation, was removed.
+
+The skill's `preflight_model_check.py` reports 0 FAIL on these models.
+
+The file `actuators.yaml` has two effort sets. The set `effort_canonical` gives the ankles and the waist
+roll/pitch 35 N m, as in `g1-brainco-description` and unitree_rl_gym's rev 1.0 model. The set
+`effort_ultra` gives them 50 N m. The setting `effort_source: canonical` is active, because training with
+the lower authority is the conservative side. Also, `ultra_eval/` measured no difference between 35 N m and
+50 N m for ULTRA's own policy.
+
+The action scale is independent of the effort set, because it is a position range. It is 0.25 x ULTRA
+effort / kp for the legs and the waist, and 3.0 rad for the arms.
+
+The action is the same in all stages: 29 joints, `a` in [-1, 1], `q* = clip(default_qpos + a * action_scale, limits)`.
+The PD loop runs at 500 Hz with `tau = clip(kp (q* - q) - kd qd, +-0.8 effort)`; the policy runs at 50 Hz.
+The upper body tracks `/g1/upper_body_target` through the reward, so the controller needs no special case
+per joint.
+
+The observation frame has 116 raw values; the normalisation is in the ONNX graph. The names are those of
+`g1_controller`: `base_ang_vel 3, projected_gravity 3, cmd_vel 3, cmd_base_height 1, upper_body_target_rel
+17, joint_pos_rel 29, joint_vel 29, last_action 29, gait_phase 2`. The term `cmd_base_height` is optional,
+default-off and always 0 so far. The gait clock is the unitree_rl_gym clock with a period of 0.8 s, the same
+as the placeholder policy. The student input is 10 frames flattened oldest first, shape (1, 1160). On reset
+the environment fills the history with the first frame (ULTRA convention).
+
+The teacher has a privileged input of 73 values: every persistent DR latent plus base velocity, height and
+foot contacts; the push kick is not privileged. Its observations are noise-free. It has separate actor and
+critic MLPs [1024, 1024, 512] with relu. The initial per-joint exploration std is 0.165 rad / action_scale
+(ULTRA's fixed sigma exp(-2.9) x 3).
+
+The student is the ULTRA CVAE: a prior over the history, a residual posterior over the history and the clean
+teacher observation, and a decoder on [s_t, z]. At deployment z is the prior mean. Training is DAgger with
+ULTRA's beta schedule and the KL, prior-action and smoothness schedules. The student trains under the full
+ULTRA uniform sensor noise; the labels come from the teacher on clean observations. The exported graph is
+prior and decoder only: history -> action.
+
+The module `commands.py` draws per-episode segments STAND / LOCO / MANIP with only the contract's legal
+transitions (never LOCO <-> MANIP). It resamples cmd_vel every 2 s to 6 s inside the contract envelope:
+vx -0.5 to 0.8, vy +-0.4, wz +-1.0 rad/s. It draws upper-body waypoints from the feasible library or box
+and moves to them with min-jerk moves at <= 2 rad/s. When MANIP ends, it blends back to the default pose
+over 1 s. An optional ULTRA motion-bank source is available once the data is prepared (`commands.yaml`
+`p_motion_bank`).
+
+The script `reach_envelope.py` finds 263 of 276 library poses statically feasible on the full model.
+Feasible means: no new self-intersection (measured with `mj_geomDistance`), CoM margin m_hat >= 0.22, and
+static gravity torques inside the clip. Both-arms-high and overhead poses are rejected because they hit the
+head. The feasible joint box is 90 % collision-free (left shoulder roll >= 0.14 rad, elbow >= -0.61 rad).
+The pelvis tilt the task needs is about 0 deg, against the 45.8 deg roll and 57 deg forward termination.
+
+The Stage A/B rewards in `rewards.yaml` are additive. The reward has four groups of terms:
+
+- Task terms from unitree_rl_gym G1: tracking_lin_vel 1.0, tracking_yaw 0.5, base_height -10, alive 0.15,
+  orientation -1, lin_vel_z -2, ang_vel_xy -0.05, contact 0.18, feet_swing_height -20, contact_no_vel -0.2,
+  hip_pos -1, dof_pos_limits -5.
+- Teleop and stability terms: tracking_upper 1.5, torso_upright 1.0, base_acc -0.002, feet_stance 0.5.
+- The ULTRA smooth pack at 1/15 of its scales: action_rate, torques, dof_vel, dof_torque_limits, energy,
+  delta_dof_vel_all, delta_ang_vel_all, feet_orientation, foot_slip, feet_distance, knee_distance.
+- Termination -100.
+
+Termination happens when the pelvis is below 0.40 m, the tilt is above 0.8 rad, or the forward pitch is
+above 1.0 rad.
+
+The curricula in `train.yaml` vary one factor per stage; the tests pin them.
+
+- Curriculum A: a1 stand calm -> a2 DR 0.5 -> a3 DR 1.0 -> a4 pushes 0.5 -> a5 pushes 1.0 (325 M steps in
+  total).
+- Curriculum B: b1 walk (cmd 0.5, calm) -> b2 cmd 1.0 -> b3 manip arms 0.5 -> b4 arms 1.0 -> b5 DR 0.5 ->
+  b6 DR 1.0 -> b7 mode switches -> b8 pushes 0.5 -> b9 pushes 1.0 = full spec (1.2 B steps in total).
+
+The gates are: lin-vel tracking = (do-nothing floor + 1) / 2, air time, survival (0.95 down to 0.75 by
+stage), and upper-body tracking 0.6. The do-nothing floors are computed and test-pinned: b1 0.912, b2 0.751,
+b3 to b6 0.822, b7 to b9 0.859. A stage passes on its best checkpoint. Warm starts reset the normaliser
+dimensions that never varied.
+
+Stage C uses `tracking_env.py` with the overlay `stage_c_tracking.yaml`; its stages are c1 (no DR, 500 M
+steps) and c2 (full DR, 1 B steps). The reward is ULTRA's multiplicative tracking reward: feet key positions
+p = 10, link directions r = 5, key-body velocity pv = 0.1, standing-dof stage I, sigmoid blends. This is
+multiplied by exp(S/10 or S/15) with the ULTRA smooth scales. Termination follows ULTRA: root below 0.15 m;
+below 0.5 m in the first 10 steps; feet deviation above 0.5 m after 30 steps. It uses a 25-frame standing
+prefix, a hybrid init probability of 0.1, and 13 key bodies recomputed by FK on our model. Today it runs
+only on the 8 stub motions in `data/motions_synthetic/`.
+
+## Benchmark
+
+The benchmark ran on the RTX 3070, shared with Isaac Sim, with XLA limited to 35 % of its memory. The
+script `scripts/bench.py` measured the environment step only, on the full-spec b9 environment, and wrote
+`outputs/bench.json`:
+
+- 256 envs: 10.1k env steps/s.
+- 1024 envs: 19.9k env steps/s (17.0k on a rerun).
+- 2048 envs: 18.9k env steps/s.
+- 4096 envs: 19.6k env steps/s.
+- 8192 envs: 20.7k env steps/s.
+
+The rate is flat from about 1024 environments. The chosen `num_envs` is 2048, which is the H1-2-validated
+PPO geometry: batch 512 x 4 minibatches x unroll 20. Full PPO with the 1024-wide networks reaches about 13k
+env steps/s (`train_teacher.py --ppo_bench`, differenced 16 against 4 iterations). Add about 7 min of jit
+per stage.
+
+## Dry-run proof
+
+The dry-run artefacts are untrained and live in `outputs/dry_run/`, which is git-ignored.
+
+- Teacher: `train_teacher.py --dry_run` ran the real brax training scan on the full-spec b9 environment
+  (64 envs, 3 iterations). It printed evaluations with every gate metric, wrote checkpoints and ran the
+  best-checkpoint selection.
+- Student: `train_student.py --dry_run` ran 6 DAgger iterations (beta 1 -> 0). The expert loss went from
+  0.21 to 0.024; the prior-action loss went from 0.042 to 0.006.
+- Export: the flax -> torch -> ONNX parity was 3.1e-7 / 3.1e-7. The real `g1_controller` `PolicyRunner`
+  loads the result (frame 116, input 1160). The artefact is `outputs/dry_run/exports/dryrun_UNTRAINED/`.
+- Sim2sim: the battery ran from `policy.onnx` and `policy.json` only, on `g1_eval.xml` and
+  `g1_eval_hands.xml`. The untrained policy falls, as it must; see `outputs/eval/dryrun_UNTRAINED*.json`.
+- Stage C: `train_tracking.py --dry_run` ran the scan end to end on the stub motions.
+
+## Training plan
+
+The user decides go/no-go before any run starts. The table lists the proposed runs at about 13k env
+steps/s.
+
+| Run | Budget | Wall clock | Pass criteria |
 |---|---|---|---|
-| Stage A teacher a1-a5 | 325 M | ~7 h | survival gates 0.95/0.95/0.95/0.9/0.8 |
-| Stage A student + export | ~100 M | ~2-3 h | ONNX battery (stand, stand_kicks 0.7 m/s) >= 90 % survival, n=50, Wilson CI reported |
-| Stage B teacher b1-b9 | 1.2 B | ~26 h | per-stage gates (tracking 0.956/0.875/0.911/0.929, air, upper 0.6, survival 0.75-0.9) |
-| Stage B student + export | ~100 M | ~3 h | ONNX battery (11 scenarios) >= 90 % survival each, stand_kicks/walk_kicks >= 80 %, student within 5 pts of teacher |
-| Stage C (after data download) | 1.5 B | ~35 h | survival 0.8, feet error < 0.1 m |
+| Stage A teacher a1-a5 | 325 M | about 7 h | survival gates 0.95 / 0.95 / 0.95 / 0.9 / 0.8 |
+| Stage A student + export | about 100 M | 2 h to 3 h | ONNX battery (stand, stand_kicks 0.7 m/s) >= 90 % survival, n = 50, Wilson CI reported |
+| Stage B teacher b1-b9 | 1.2 B | about 26 h | per-stage gates (tracking 0.956 / 0.875 / 0.911 / 0.929, air time, upper 0.6, survival 0.75 to 0.9) |
+| Stage B student + export | about 100 M | about 3 h | ONNX battery (11 scenarios) >= 90 % survival each, stand_kicks and walk_kicks >= 80 %, student within 5 points of the teacher |
+| Stage C (after data preparation) | 1.5 B | about 35 h | survival 0.8, feet error < 0.1 m |
 
-Budgets are skill-derived (X1 needed ~1-2 B steps); a stall means more budget first, then a
-one-factor ablation, never a smaller spec.
+The budgets come from the skill; the X1 needed 1 B to 2 B steps. If a run stalls, add budget first, then run
+a one-factor ablation; never reduce the spec. Nothing in this table is measured yet; it is a plan.
 
 ## ULTRA's released teacher on our robot
 
-`third_party/ULTRA/` is an unmodified clone of [ULTRA](https://github.com/Sirui-Xu/ULTRA). `ultra_eval/` runs its
-released tracking teacher in MuJoCo on our G1 + BrainCo (and on ULTRA's G1 as a baseline), with results:
-it tracks as well on our robot as on ULTRA's, at 35 N·m as at 50 N·m. See [`ultra_eval/README.md`](ultra_eval/README.md).
+The folder `ultra_eval/` runs the tracking teacher released with ULTRA in MuJoCo on our G1 + BrainCo, and
+on ULTRA's own G1 as the baseline. Measured on 2026-10-09: it tracks as well on our robot as on ULTRA's, and
+as well at 35 N m as at 50 N m. See `ultra_eval/README.md`.

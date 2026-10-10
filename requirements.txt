@@ -1,27 +1,37 @@
-# G1 whole-body controller (g1-whole-body-rl): MuJoCo MJX + JAX + brax PPO.
-# Pinned to the stack validated on the AgiBot X1 / H1-2 reference projects
-# (/home/rakshith/ntu_dev/AGIBOT/Mujoco_agibot/requirements.txt).
-# mujoco pinned: keep training and eval physics identical within a campaign.
+# g1-whole-body-rl: conda env g1-mjx (python 3.11). Pins = the installed freeze
+# of that env (2026-10-10). Install: see README "Install" (conda env create -f
+# environment.yml reads this file).
+#
+# Physics. mujoco pinned so training and eval physics stay identical within a campaign.
 mujoco==3.10.0
 mujoco-mjx==3.10.0
-# jax pinned <0.10: brax 0.14.x still uses jax.device_put_replicated (removed in 0.10).
+# JAX stack. jax < 0.10: brax 0.14.x still uses jax.device_put_replicated (removed in 0.10).
+# jax[cuda12] pulls jax-cuda12-plugin 0.9.2 + jax-cuda12-pjrt 0.9.2 (CUDA 12 wheels, no
+# system CUDA toolkit needed; the NVIDIA driver must support CUDA 12).
 jax[cuda12]==0.9.2
 jaxlib==0.9.2
 flax==0.12.6
 optax==0.2.8
 orbax-checkpoint==0.12.1
 brax==0.14.2
-ml_collections>=1.0
-# numpy <2.5: numpy 2.5 breaks jax 0.9.x under vmap.
+ml_collections==1.1.0
+# numpy < 2.5: numpy 2.5 breaks jax 0.9.x under vmap.
 numpy==2.4.6
-scipy>=1.13
-PyYAML>=6.0
-etils[epath]>=1.9
-mediapy>=1.2
-imageio-ffmpeg>=0.5
-matplotlib>=3.8
-# Export pipeline (torch CPU is installed separately, see environment.yml)
-onnx>=1.16
-onnxruntime>=1.18
+scipy==1.17.1
+PyYAML==6.0.3
+# Export pipeline (flax -> torch -> ONNX -> onnxruntime parity check).
+onnx==1.23.0
+onnxruntime==1.30.0
+# torch 2.14.0+cpu is NOT installed from this file: the CPU wheel comes from the
+# PyTorch index and pip cannot pin "+cpu" builds here without pulling that index
+# for every package. Install it separately after this file:
+#   ~/miniconda3/envs/g1-mjx/bin/pip install torch==2.14.0 --index-url https://download.pytorch.org/whl/cpu
+# It is only used by export/export_policy.py and the ULTRA .pt loader in motion_data.py.
 # Dev
-pytest>=8.0
+pytest==9.1.1
+# Not imported by this repo's code (kept from the reference project stack; brax/orbax
+# tooling and optional video/plot helpers).
+etils[epath]==1.14.0
+mediapy==1.2.7
+imageio-ffmpeg==0.6.0
+matplotlib==3.11.2

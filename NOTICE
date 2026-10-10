@@ -1,0 +1,24 @@
+g1-whole-body-rl
+Copyright 2026 Bkrakshith (https://github.com/Bkrakshith)
+
+g1-whole-body-rl is part of hospital-sim (https://github.com/Bkrakshith/hospital-sim), created by Bkrakshith.
+
+This work is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+Attribution. Section 4 of the licence requires that any redistribution or derivative work keeps this
+NOTICE file and shows its attribution. If you use this work or build on it, give this credit in your
+documentation, in the credits of your product, and in your source distribution:
+
+    Based on hospital-sim by Bkrakshith (https://github.com/Bkrakshith/hospital-sim)
+
+If you use this work in a publication, cite it with the details in CITATION.cff.
+
+Third-party components
+
+The parts below are not covered by the copyright above and keep their own licences.
+
+- third_party/ULTRA is a git submodule of Sirui-Xu/ULTRA (Apache-2.0, with MIT parts under LICENSE-InterMimic).
+  Its released checkpoint and motion data are not included and keep their own terms.
+
+- The MJCF files in assets/ and ultra_eval/assets/ are generated from g1-brainco-description: Unitree
+  unitree_ros (BSD-3-Clause) and BrainCo revo2_description (Apache-2.0).

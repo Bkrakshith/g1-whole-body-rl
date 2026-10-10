@@ -492,3 +492,12 @@ a one-factor ablation; never reduce the spec. Nothing in this table is measured 
 The folder `ultra_eval/` runs the tracking teacher released with ULTRA in MuJoCo on our G1 + BrainCo, and
 on ULTRA's own G1 as the baseline. Measured on 2026-10-09: it tracks as well on our robot as on ULTRA's, and
 as well at 35 N m as at 50 N m. See `ultra_eval/README.md`.
+
+## License
+
+The license of this repository is the Apache License, Version 2.0 (see `LICENSE`).
+You can use, change and share this work, also for commercial use.
+If you share this work or a work that you built on it, keep the `NOTICE` file.
+Give this credit in your documentation and product credits: "Based on hospital-sim by Bkrakshith (https://github.com/Bkrakshith/hospital-sim)".
+To cite this work in a publication, use `CITATION.cff`.
+Some third-party parts keep their own licences. The `NOTICE` file lists them.

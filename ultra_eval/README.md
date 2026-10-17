@@ -56,8 +56,8 @@ It writes one JSON file (`--out`) and, with `--video`, an MP4 of the first clip,
 
 The script `run_upstream.py` runs any ULTRA sim2sim script unchanged on a CPU-only torch; it maps every
 `torch.load` to the CPU. The script `run.sh` runs a script of this folder with the `ultra-sim2sim` conda
-python. It uses a clean environment (`env -i`), because conda `LD_LIBRARY_PATH` entries break imports, and
-`taskset -c 0-7,10-31`.
+python. It uses a clean environment (`env -i`), because conda `LD_LIBRARY_PATH` entries break imports. Set
+`G1_MJX_CPUS` to a `taskset` list to pin the process to specific CPUs.
 
 ## Architecture
 
@@ -96,9 +96,8 @@ The table gives the role of each piece.
 
 The system dependencies are:
 
-- Ubuntu 22.04.5;
-- conda 25.5.0 with the environment `ultra-sim2sim` (Python 3.10.22);
-- `taskset`;
+- Ubuntu 22.04;
+- conda with the environment `ultra-sim2sim` (Python 3.10);
 - EGL for offscreen rendering (Mesa or the NVIDIA driver; `run.sh` sets `MUJOCO_GL=egl`);
 - `unzip` and `gdown` for the data.
 
@@ -144,14 +143,14 @@ Run these commands in order; the first one changes into `g1-whole-body-rl/`:
 cd g1-whole-body-rl
 # Get the ULTRA submodule.
 git submodule update --init third_party/ULTRA
-# Create the conda environment, pinned to the good CPUs (unpinned installs corrupted files on this machine).
-taskset -c 0-7,10-31 conda create -y -n ultra-sim2sim python=3.10
+# Create the conda environment.
+conda create -y -n ultra-sim2sim python=3.10
 # Install the torch CPU wheel.
-taskset -c 0-7,10-31 ~/miniconda3/envs/ultra-sim2sim/bin/pip install --index-url https://download.pytorch.org/whl/cpu torch
+conda run -n ultra-sim2sim pip install --index-url https://download.pytorch.org/whl/cpu torch
 # Install the other packages.
-taskset -c 0-7,10-31 ~/miniconda3/envs/ultra-sim2sim/bin/pip install "rl-games==1.1.4" "mujoco>=3.0,<3.3" trimesh scipy tqdm "imageio[ffmpeg]" pyyaml gym tensorboardX gdown "numpy<2"
+conda run -n ultra-sim2sim pip install "rl-games==1.1.4" "mujoco>=3.0,<3.3" trimesh scipy tqdm "imageio[ffmpeg]" pyyaml gym tensorboardX gdown "numpy<2"
 # Download the data (about 2.8 GB download, 3.3 GB extracted) into the master root.
-mkdir -p ../datasets/ultra && (cd ../datasets/ultra && ~/miniconda3/envs/ultra-sim2sim/bin/gdown 1g6OzxXGJczZ4klVqKCpTzy-orKkllCr4 && unzip OMOMO_retarget_aug_v4*.zip)
+mkdir -p ../datasets/ultra && (cd ../datasets/ultra && conda run -n ultra-sim2sim gdown 1g6OzxXGJczZ4klVqKCpTzy-orKkllCr4 && unzip OMOMO_retarget_aug_v4*.zip)
 ```
 
 ## Run

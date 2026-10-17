@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Run a python entry point of g1-whole-body-rl in the g1-mjx conda env with the machine's
-# required hygiene (hospital-sim docs/interfaces.md "Machine notes"):
-#   * pinned to the good CPUs (logical 8/9 are defective -> random segfaults)
+# Run a python entry point of g1-whole-body-rl in the g1-mjx conda env.
 #   * LD_LIBRARY_PATH cleared (a conda env's stale libnvJitLink breaks jax CUDA)
-#   * GPU shared with Isaac: XLA may take at most 35 % of the 8 GB 3070 and
-#     does not preallocate it
+#   * XLA takes at most 35 % of the GPU by default and does not preallocate it, so the
+#     GPU can be shared with Isaac Sim; override with XLA_PYTHON_CLIENT_MEM_FRACTION
+#   * optional CPU pinning: set G1_MJX_CPUS to a taskset list (for example "0-7,10-31")
+#     to keep training off cores you want to reserve; unset by default
 # Usage: ./run.sh scripts/bench.py --backend gpu      (paths relative to this folder)
 #        ./run.sh -m pytest tests -q
 set -euo pipefail
@@ -16,4 +16,7 @@ export XLA_PYTHON_CLIENT_PREALLOCATE="${XLA_PYTHON_CLIENT_PREALLOCATE:-false}"
 export TF_CPP_MIN_LOG_LEVEL="${TF_CPP_MIN_LOG_LEVEL:-3}"
 export PYTHONPATH="$HERE/src${PYTHONPATH:+:$PYTHONPATH}"
 cd "$HERE"
-exec env -u LD_LIBRARY_PATH taskset -c 0-7,10-31 "$PY" "$@"
+if [ -n "${G1_MJX_CPUS:-}" ]; then
+  exec env -u LD_LIBRARY_PATH taskset -c "$G1_MJX_CPUS" "$PY" "$@"
+fi
+exec env -u LD_LIBRARY_PATH "$PY" "$@"

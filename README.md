@@ -1,4 +1,6 @@
-# g1-whole-body-rl: G1 whole-body teleop controller training (MJX)
+# WardZero Whole-Body Controller Training for the Unitree G1
+
+Part of [WardZero](https://bkrakshith.github.io/wardzero/), a simulated hospital for testing robots before they meet patients. Start from the main repository, [hospital-sim](https://github.com/Bkrakshith/hospital-sim).
 
 This repository is the RL side of the hospital G1. It holds MuJoCo MJX environments, configuration files,
 staged PPO training, teacher-to-student distillation, ONNX export and a plain-MuJoCo evaluation battery.

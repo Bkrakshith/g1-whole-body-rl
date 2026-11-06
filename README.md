@@ -2,17 +2,15 @@
 
 Part of [WardZero](https://bkrakshith.github.io/wardzero/), a simulated hospital for testing robots before they meet patients. Start from the main repository, [hospital-sim](https://github.com/Bkrakshith/hospital-sim).
 
-This repository is the RL side of the hospital G1. It holds MuJoCo MJX environments, configuration files,
-staged PPO training, teacher-to-student distillation, ONNX export and a plain-MuJoCo evaluation battery.
-The target is a 29-DoF whole-body teleop controller in the style of ULTRA (see `docs/ultra_port.md`). It
-reads the canonical G1 + BrainCo Revo2 MJCF and meshes from the sibling repository `g1-brainco-description`.
-It writes `exports/<name>/policy.onnx` and `policy.json` for the `g1_controller` package in
-`hospital-sim-ros2`. The master repository `hospital-sim` checks all of these out side by side, and
-`datasets/` at the master root holds the ULTRA motion data.
+Training for the G1's whole-body teleoperation controller, in the style of ULTRA (see `docs/ultra_port.md`):
+MuJoCo MJX environments, staged PPO training, teacher-to-student distillation, ONNX export and a plain-MuJoCo
+evaluation battery. It reads the G1 + BrainCo Revo2 MJCF and meshes from `g1-brainco-description` and writes
+`exports/<name>/policy.onnx` and `policy.json` for the `g1_controller` package in `hospital-sim-ros2`. The ULTRA
+motion data lives in `datasets/` at the root of the `hospital-sim` checkout.
 
-Training uses the conda environment `g1-mjx`, never the master's `.venv`, and does not need `env.sh`. Paths
-in this file are relative to this folder unless they name a sibling repository or the master
-(`docs/interfaces.md`, `datasets/`). Commands are written to run from the master checkout root.
+Training uses its own conda environment, `g1-mjx`, not the shared `.venv`, and does not need `env.sh`. Paths are
+relative to this folder unless they name a sibling repository or the `hospital-sim` root (`docs/interfaces.md`,
+`datasets/`). Commands run from the root of the `hospital-sim` checkout.
 
 Status on 2026-10-10: the code is built, unit-tested and dry-run only. No training run has started. The
 folder `exports/` is empty. Nothing is deployed on a real robot. The go/no-go for the first training

@@ -2,6 +2,8 @@
 
 Part of [WardZero](https://bkrakshith.github.io/wardzero/), a simulated hospital for testing robots before they meet patients. Start from the main repository, [hospital-sim](https://github.com/Bkrakshith/hospital-sim).
 
+> **Archived.** WardZero no longer uses this repository: its walking G1 runs NVIDIA GEAR-SONIC, and no policy was ever trained here. To train your own whole-body controller, use [GR00T-WholeBodyControl](https://github.com/NVlabs/GR00T-WholeBodyControl).
+
 Training for the G1's whole-body teleoperation controller, in the style of ULTRA (see `docs/ultra_port.md`):
 MuJoCo MJX environments, staged PPO training, teacher-to-student distillation, ONNX export and a plain-MuJoCo
 evaluation battery. It reads the G1 + BrainCo Revo2 MJCF and meshes from `g1-brainco-description` and writes
